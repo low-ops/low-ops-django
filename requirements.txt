@@ -1,3 +1,6 @@
-Django==5.0.2
-gunicorn==21.2.0
-Pillow==10.2.0 
+Django==6.0.7
+gunicorn==26.0.0
+Pillow==12.3.0
+djangorestframework==3.17.1
+psycopg[binary]==3.3.4
+boto3==1.43.62
