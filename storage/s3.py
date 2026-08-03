@@ -14,10 +14,16 @@ _config = None
 
 
 def is_s3_available():
+    from config.backends import ensure_backends
+
+    ensure_backends()
     return _available
 
 
 def get_s3_config():
+    from config.backends import ensure_backends
+
+    ensure_backends()
     return _config
 
 
@@ -60,6 +66,7 @@ def init_s3():
     if service_name.startswith('com.mendix.storage.'):
         service_name = 's3'
 
+    # S3-compatible gateways often reject boto3's newer default checksum behavior.
     client = boto3.client(
         service_name,
         region_name=config['region'],
@@ -67,7 +74,9 @@ def init_s3():
         aws_access_key_id=config['access_key_id'],
         aws_secret_access_key=config['secret_access_key'],
         config=Config(
-            s3={'addressing_style': 'path' if config['force_path_style'] else 'auto'}
+            s3={'addressing_style': 'path' if config['force_path_style'] else 'auto'},
+            request_checksum_calculation='when_required',
+            response_checksum_validation='when_required',
         ),
     )
 
@@ -128,11 +137,18 @@ def build_object_key(relative_key):
 def upload_bytes(key, body, content_type):
     if not _available or not _client or not _config:
         raise RuntimeError('S3 is not available')
+
+    if isinstance(body, memoryview):
+        body = body.tobytes()
+    elif not isinstance(body, (bytes, bytearray)):
+        body = bytes(body)
+
     _client.put_object(
         Bucket=_config['bucket'],
         Key=key,
         Body=body,
         ContentType=content_type,
+        ContentLength=len(body),
     )
     return key
 
