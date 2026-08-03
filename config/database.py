@@ -57,6 +57,9 @@ def _reset_connections(database_config):
 
 
 def is_database_available():
+    from config.backends import ensure_backends
+
+    ensure_backends()
     return _database_available
 
 
