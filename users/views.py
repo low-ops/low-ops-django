@@ -1,8 +1,11 @@
 from django.http import HttpResponse
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from config.metrics import USERS_CREATED_TOTAL
 
 from . import store
 from .avatars import load_avatar_payload, save_avatar
@@ -35,6 +38,7 @@ def _public_payload(user):
 
 class UserListCreateView(APIView):
     parser_classes = [JSONParser, FormParser, MultiPartParser]
+    serializer_class = UserSerializer
 
     def get(self, request):
         users = [_public_payload(user) for user in store.list_users()]
@@ -44,11 +48,13 @@ class UserListCreateView(APIView):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = store.create_user(_validated_user_data(serializer))
+        USERS_CREATED_TOTAL.inc()
         return Response(UserSerializer(_public_payload(user)).data, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(APIView):
     parser_classes = [JSONParser, FormParser, MultiPartParser]
+    serializer_class = UserSerializer
 
     def get(self, request, user_id):
         user = store.get_user(user_id)
@@ -97,6 +103,7 @@ class UserDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(exclude=True)
 class UserAvatarView(APIView):
     def get(self, request, user_id):
         user = store.get_user(user_id, include_private=True)

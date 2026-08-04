@@ -5,12 +5,26 @@
   <img src="./images/django-logo.svg" height="50" width="60" alt="Django logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
 </p>
 
-This template is a simple Django project with a basic structure.
+People desk starter: Django + DRF, PostgreSQL, and S3-compatible storage.
 
-## Getting Started
-
-Clone the repository and start developing your Django app:
+## Local development
 
 ```bash
-git clone {repository-url}
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
 ```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+- App: `PORT` (default `8000`), health `GET /ready`
+- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics`
+- OpenAPI: `/api/schema/`, Swagger UI `/api/docs/`
+- Compose includes PostgreSQL and MinIO
