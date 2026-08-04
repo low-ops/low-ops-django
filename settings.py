@@ -14,11 +14,16 @@ WSGI_APPLICATION = 'wsgi.application'
 INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',
+    'corsheaders',
     'users.apps.UsersConfig',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'config.metrics.PrometheusMiddleware',
+    'config.middleware.NoCacheMiddleware',
 ]
 
 TEMPLATES = [
@@ -48,25 +53,46 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
     'UNAUTHENTICATED_USER': None,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Low-Ops Django API',
+    'DESCRIPTION': 'People desk API',
+    'VERSION': '1.0.0',
+}
+
+APPLICATION_URL = (os.environ.get('APPLICATION_URL') or '').strip().rstrip('/')
+if APPLICATION_URL:
+    CORS_ALLOWED_ORIGINS = [APPLICATION_URL]
+else:
+    CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'console': {
-            'format': '[{levelname}] {name}: {message}',
-            'style': '{',
+        'json': {
+            '()': 'config.json_logging.JsonFormatter',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'console',
+            'formatter': 'json',
         },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
     },
     'loggers': {
         'lowops': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
