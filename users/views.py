@@ -28,12 +28,16 @@ def _validated_user_data(serializer, user_id=None, previous_key=None):
 
 
 def _public_payload(user):
-    return {
+    payload = {
         'id': user['id'],
         'name': user['name'],
         'email': user['email'],
         'avatar': user.get('avatar'),
     }
+    updated_at = user.get('updated_at')
+    if updated_at is not None:
+        payload['updated_at'] = updated_at
+    return payload
 
 
 class UserListCreateView(APIView):
@@ -115,7 +119,8 @@ class UserAvatarView(APIView):
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         response = HttpResponse(payload['body'], content_type=payload['content_type'])
-        response['Cache-Control'] = 'private, max-age=300'
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        response['Pragma'] = 'no-cache'
         if payload.get('content_length') is not None:
             response['Content-Length'] = str(payload['content_length'])
         return response

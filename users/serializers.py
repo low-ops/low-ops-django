@@ -51,3 +51,4 @@ class UserSerializer(serializers.Serializer):
         default=None,
     )
     avatar_file = AvatarUploadField(required=False, write_only=True, allow_null=True)
+    updated_at = serializers.DateTimeField(read_only=True, required=False)
