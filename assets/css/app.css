@@ -523,6 +523,16 @@ a {
   color: var(--ink-soft);
 }
 
+.form-error {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(176, 42, 42, 0.08);
+  color: #9b1c1c;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 .toast {
   position: fixed;
   left: 50%;
