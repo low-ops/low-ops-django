@@ -2,6 +2,21 @@ import os
 
 from config.database import configure_databases
 
+
+def normalize_application_url(raw_url):
+    url = (raw_url or '').strip().rstrip('/')
+    if not url:
+        return ''
+
+    if '://' in url:
+        return url
+
+    if url.startswith('localhost') or url.startswith('127.0.0.1'):
+        return f'http://{url}'
+
+    return f'https://{url}'
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-your-secret-key-here')
@@ -62,7 +77,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
 }
 
-APPLICATION_URL = (os.environ.get('APPLICATION_URL') or '').strip().rstrip('/')
+APPLICATION_URL = normalize_application_url(os.environ.get('APPLICATION_URL'))
 if APPLICATION_URL:
     CORS_ALLOWED_ORIGINS = [APPLICATION_URL]
 else:
