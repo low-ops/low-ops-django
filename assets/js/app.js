@@ -31,15 +31,41 @@ const PeopleApp = (() => {
   async function request(url, options = {}) {
     const response = await fetch(url, options);
     if (response.status === 204) return null;
-    const data = await response.json().catch(() => ({}));
+
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json')
+      ? await response.json().catch(() => ({}))
+      : {};
+
     if (!response.ok) {
-      const message =
-        data.detail ||
-        Object.values(data).flat?.().join(' ') ||
-        'Something went wrong';
-      throw new Error(typeof message === 'string' ? message : 'Something went wrong');
+      const error = new Error(formatApiError(data, response.status));
+      error.data = data;
+      error.status = response.status;
+      throw error;
     }
+
     return data;
+  }
+
+  function formatApiError(data, status) {
+    if (typeof data.detail === 'string') {
+      return data.detail;
+    }
+
+    const messages = [];
+    for (const value of Object.values(data || {})) {
+      if (Array.isArray(value)) {
+        messages.push(...value.map(String));
+      } else if (typeof value === 'string') {
+        messages.push(value);
+      }
+    }
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+
+    return `Request failed (${status})`;
   }
 
   function avatarMarkup(user, className = 'avatar') {
@@ -71,8 +97,21 @@ const PeopleApp = (() => {
     const form = document.getElementById('create-form');
     const openBtn = document.getElementById('open-create');
     const createBtn = document.getElementById('create-submit');
+    const createErrorEl = document.getElementById('create-error');
 
     let people = [];
+
+    function clearCreateError() {
+      if (!createErrorEl) return;
+      createErrorEl.textContent = '';
+      createErrorEl.classList.add('hidden');
+    }
+
+    function showCreateError(message) {
+      if (!createErrorEl) return;
+      createErrorEl.textContent = message;
+      createErrorEl.classList.remove('hidden');
+    }
 
     function render() {
       const query = (searchEl.value || '').trim().toLowerCase();
@@ -124,10 +163,14 @@ const PeopleApp = (() => {
       }
     }
 
-    openBtn.addEventListener('click', () => sheet.showModal());
+    openBtn.addEventListener('click', () => {
+      clearCreateError();
+      sheet.showModal();
+    });
     searchEl.addEventListener('input', render);
 
     createBtn.addEventListener('click', async () => {
+      clearCreateError();
       const data = new FormData(form);
       if (!data.get('name') || !data.get('email')) {
         form.reportValidity();
@@ -142,10 +185,11 @@ const PeopleApp = (() => {
         await request(API, { method: 'POST', body: data });
         form.reset();
         sheet.close();
+        clearCreateError();
         showToast('Person added');
         await load();
       } catch (error) {
-        showToast(error.message);
+        showCreateError(error.message);
       } finally {
         setButtonBusy(createBtn, false);
       }

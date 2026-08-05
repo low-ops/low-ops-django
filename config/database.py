@@ -79,12 +79,16 @@ def init_database(base_dir):
     _reset_connections(postgres)
 
     try:
+        from django.core.management import call_command
         from django.db import connections
 
         connection = connections['default']
         connection.ensure_connection()
         with connection.cursor() as cursor:
             cursor.execute('SELECT 1')
+
+        call_command('migrate', '--noinput', verbosity=0)
+
         _database_available = True
         logger.info(
             'Database connection established (%s:%s/%s)',
