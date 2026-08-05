@@ -3,6 +3,8 @@ from copy import deepcopy
 from itertools import count
 from threading import Lock
 
+from django.utils import timezone
+
 from config.database import is_database_available
 from storage import s3 as s3_storage
 
@@ -58,6 +60,7 @@ def _serialize_db_user(user):
         'email': user.email,
         'avatar': avatar,
         'avatar_key': user.avatar_key,
+        'updated_at': user.updated_at.isoformat(),
     }
 
 
@@ -70,6 +73,8 @@ def _public_user(user):
     }
     if user.get('avatar_key'):
         data['avatar'] = f"/api/users/{user['id']}/avatar/"
+    if user.get('updated_at'):
+        data['updated_at'] = user['updated_at']
     return data
 
 
@@ -97,6 +102,7 @@ def get_user(user_id, include_private=False):
             'name': data['name'],
             'email': data['email'],
             'avatar': data['avatar'],
+            'updated_at': data['updated_at'],
         }
 
     with _lock:
@@ -135,6 +141,7 @@ def create_user(data):
             'email': data['email'],
             'avatar': data.get('avatar'),
             'avatar_key': data.get('avatar_key'),
+            'updated_at': timezone.now().isoformat(),
         }
         if data.get('_pending_upload') is not None:
             from .avatars import save_avatar
@@ -185,6 +192,7 @@ def update_user(user_id, data, partial=False):
             for key, value in data.items():
                 if key in {'name', 'email', 'avatar', 'avatar_key'}:
                     user[key] = value
+            user['updated_at'] = timezone.now().isoformat()
         else:
             user['name'] = data['name']
             user['email'] = data['email']
@@ -192,6 +200,7 @@ def update_user(user_id, data, partial=False):
                 user['avatar'] = data.get('avatar')
             if 'avatar_key' in data:
                 user['avatar_key'] = data.get('avatar_key')
+            user['updated_at'] = timezone.now().isoformat()
 
         return _public_user(user)
 
