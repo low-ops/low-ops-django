@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 
 AWS_REGION_PATTERN = re.compile(r'^[a-z]{2}(?:-[a-z]+)+-\d+$')
 
-DEFAULT_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
 DEFAULT_APPLICATION_URL = 'http://localhost:8000'
 
 
@@ -184,22 +183,3 @@ def get_otel_config():
         'endpoint': endpoint.rstrip('/'),
         'service_name': service_name,
     }
-
-
-def get_secret_key(*, strict=False):
-    secret = (os.environ.get('SECRET_KEY') or '').strip()
-
-    if strict and (not secret or len(secret) < 32):
-        raise EnvValidationError('SECRET_KEY must be at least 32 characters.')
-
-    if secret and len(secret) >= 32:
-        return secret
-    return DEFAULT_SECRET_KEY
-
-
-def validate_runtime_env():
-    get_postgres_config()
-    get_s3_config()
-    get_secret_key(strict=True)
-    if not get_application_url():
-        raise EnvValidationError('Set APPLICATION_URL.')

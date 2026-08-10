@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -74,14 +75,28 @@ def init_database(base_dir):
 
     _reset_connections(postgres)
 
+    max_attempts = int(os.environ.get('DB_CONNECT_ATTEMPTS', '30'))
+
     try:
         from django.core.management import call_command
         from django.db import connections
 
         connection = connections['default']
-        connection.ensure_connection()
-        with connection.cursor() as cursor:
-            cursor.execute('SELECT 1')
+        for attempt in range(1, max_attempts + 1):
+            try:
+                connection.ensure_connection()
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT 1')
+                break
+            except Exception as exc:
+                if attempt >= max_attempts:
+                    raise exc
+                logger.info(
+                    'Waiting for PostgreSQL (attempt %s/%s)',
+                    attempt,
+                    max_attempts,
+                )
+                time.sleep(1)
 
         call_command('migrate', '--noinput', '--fake-initial', verbosity=0)
 

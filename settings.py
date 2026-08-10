@@ -5,11 +5,15 @@ load_dotenv_file()
 import os
 
 from config.database import configure_databases
-from config.env import DEFAULT_APPLICATION_URL, get_application_url, get_secret_key
+from config.env import DEFAULT_APPLICATION_URL, get_application_url
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-SECRET_KEY = get_secret_key()
+# Django requires this internally for sessions/signing; optional SECRET_KEY env override.
+SECRET_KEY = (
+    os.environ.get('SECRET_KEY', '').strip()
+    or 'build-time-placeholder-secret-min-32-chars!!'
+)
 DEBUG = os.environ.get('DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
 ALLOWED_HOSTS = ['*']
 

@@ -52,7 +52,6 @@ Default admin after seed: `admin@gmail.com` / `admin`
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `SECRET_KEY` | yes | — | Django secret (min 32 chars). Generate with `openssl rand -base64 32`. |
 | `APPLICATION_URL` | yes | — | Public app URL. |
 | `PORT` | no | `8000` | HTTP server port. |
 | `METRICS_PORT` | no | `8001` | Prometheus metrics port. |

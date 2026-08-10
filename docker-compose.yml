@@ -64,7 +64,6 @@ services:
     environment:
       PORT: ${PORT:-8000}
       METRICS_PORT: ${METRICS_PORT:-8001}
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-change-me-in-production}
       APPLICATION_URL: ${APPLICATION_URL:-http://localhost:8000}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
