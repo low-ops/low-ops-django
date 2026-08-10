@@ -1,8 +1,11 @@
 import os
 
-from django.core.wsgi import get_wsgi_application
+from config.dotenv import load_dotenv_file
 
+load_dotenv_file()
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
+
+from django.core.wsgi import get_wsgi_application
 
 from config.otel import setup_otel  # noqa: E402
 

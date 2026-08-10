@@ -1,25 +1,15 @@
+from config.dotenv import load_dotenv_file
+
+load_dotenv_file()
+
 import os
 
 from config.database import configure_databases
-
-
-def normalize_application_url(raw_url):
-    url = (raw_url or '').strip().rstrip('/')
-    if not url:
-        return ''
-
-    if '://' in url:
-        return url
-
-    if url.startswith('localhost') or url.startswith('127.0.0.1'):
-        return f'http://{url}'
-
-    return f'https://{url}'
-
+from config.env import DEFAULT_APPLICATION_URL, get_application_url, get_secret_key
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-your-secret-key-here')
+SECRET_KEY = get_secret_key()
 DEBUG = os.environ.get('DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
 ALLOWED_HOSTS = ['*']
 
@@ -37,6 +27,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'users.middleware.AuthMiddleware',
     'config.metrics.PrometheusMiddleware',
     'config.middleware.NoCacheMiddleware',
 ]
@@ -46,6 +37,12 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'users.context_processors.current_user',
+            ],
+        },
     },
 ]
 
@@ -57,13 +54,12 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'assets')]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'users.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
@@ -72,14 +68,22 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Low-Ops Django API',
-    'DESCRIPTION': 'People desk API',
+    'TITLE': 'Low-Ops Django Template API',
+    'DESCRIPTION': (
+        'Custom API routes for the Low-Ops Django starter template. '
+        'Env vars and platform endpoints follow the '
+        'Low-Ops application specification.'
+    ),
     'VERSION': '1.0.0',
 }
 
-APPLICATION_URL = normalize_application_url(os.environ.get('APPLICATION_URL'))
-if APPLICATION_URL:
-    CORS_ALLOWED_ORIGINS = [APPLICATION_URL]
+APPLICATION_URL = get_application_url() or DEFAULT_APPLICATION_URL
+EMAIL_VERIFICATION_ENABLED = bool(os.environ.get('RESEND_API_KEY', '').strip())
+ALLOW_PUBLIC_SIGN_UP = os.environ.get('ALLOW_PUBLIC_SIGN_UP', 'false').lower() in {
+    '1', 'true', 'yes', 'on',
+}
+if get_application_url():
+    CORS_ALLOWED_ORIGINS = [get_application_url()]
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
 

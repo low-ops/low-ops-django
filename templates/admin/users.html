@@ -1,0 +1,16 @@
+{% extends "admin/layout.html" %}
+{% load static %}
+
+{% block page_title %}Users{% endblock %}
+
+{% block content %}
+{% include "admin/components/users_table.html" %}
+{% endblock %}
+
+{% block dialogs %}
+{% include "admin/components/users_dialogs.html" %}
+{% endblock %}
+
+{% block page_scripts %}
+<script src="{% static 'js/admin.js' %}"></script>
+{% endblock %}

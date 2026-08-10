@@ -1,0 +1,17 @@
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="/admin/" class="sidebar-brand">
+      {% include "partials/app_brand.html" %}
+      <span class="app-version">v1.0.0</span>
+    </a>
+  </div>
+  <nav class="sidebar-nav">
+    {% if is_admin %}
+    <a href="/admin/users/" class="sidebar-link{% if '/admin/users' in request.path %} active{% endif %}">Users</a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-footer">
+    <a href="/admin/settings/" class="sidebar-link{% if '/admin/settings' in request.path %} active{% endif %}">Settings</a>
+    <button type="button" class="btn btn-ghost sidebar-logout" id="logout-btn">Logout</button>
+  </div>
+</aside>

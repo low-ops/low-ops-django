@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body %}
+<div class="dashboard-shell">
+  {% include "partials/admin_sidebar.html" %}
+  <div class="dashboard-main">
+    <button type="button" class="icon-btn sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">☰</button>
+    <main class="dashboard-content">
+      {% include "partials/admin_header.html" with breadcrumb_current=admin_breadcrumb %}
+      <div class="page-body">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</div>
+{% block dialogs %}{% endblock %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/admin-layout.js' %}"></script>
+{% block page_scripts %}{% endblock %}
+{% endblock %}

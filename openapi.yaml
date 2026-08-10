@@ -1,0 +1,350 @@
+openapi: 3.1.0
+info:
+  title: Low-Ops Django Template API
+  version: 1.0.0
+  description: |
+    Custom API routes for the Low-Ops Django starter template.
+
+    Platform endpoints and environment variables follow the
+    [Low-Ops application specification](https://github.com/low-ops/low-ops-application-specification).
+
+servers:
+  - url: http://localhost:8000
+    description: Local development (PORT)
+
+paths:
+  /ready:
+    get:
+      summary: Readiness probe
+      description: |
+        Returns 200 when PostgreSQL and S3 are reachable.
+        Response shape: `{ "status": "ready"|"not_ready", "checks": { "postgres": "ok"|"error", "s3": "ok"|"error" } }`
+      tags: [Platform]
+      responses:
+        "200":
+          description: Service is ready
+        "503":
+          description: Service is not ready
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Served on METRICS_PORT (default 8001), not the main app port.
+      tags: [Platform]
+      servers:
+        - url: http://localhost:8001
+          description: Metrics port (METRICS_PORT)
+      responses:
+        "200":
+          description: Prometheus text exposition format
+
+  /api/auth/sign-in/:
+    post:
+      summary: Sign in
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Signed in; session cookie set
+        "401":
+          description: Invalid credentials
+
+  /api/auth/sign-up/:
+    post:
+      summary: Sign up
+      description: Returns 403 when ALLOW_PUBLIC_SIGN_UP is not enabled.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "201":
+          description: Account created
+        "400":
+          description: Validation error
+        "403":
+          description: Sign up disabled
+
+  /api/auth/sign-out/:
+    post:
+      summary: Sign out
+      tags: [Auth]
+      responses:
+        "200":
+          description: Session cleared
+        "401":
+          description: Unauthorized
+
+  /api/auth/session/:
+    get:
+      summary: Current session
+      tags: [Auth]
+      responses:
+        "200":
+          description: Authenticated user
+        "401":
+          description: Unauthorized
+
+  /api/auth/verify-email/:
+    post:
+      summary: Verify email
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Email verified
+        "400":
+          description: Invalid or expired token
+
+  /api/auth/revoke-sessions/{user_id}/:
+    post:
+      summary: Revoke user sessions
+      tags: [Auth]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sessions revoked
+        "403":
+          description: Forbidden
+
+  /api/user/profile/:
+    patch:
+      summary: Update profile
+      tags: [User]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                image:
+                  type: string
+      responses:
+        "200":
+          description: Profile updated
+        "401":
+          description: Unauthorized
+
+  /api/user/avatar/:
+    post:
+      summary: Upload avatar
+      description: Uploads the current user's profile photo to S3-compatible storage.
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload successful
+        "400":
+          description: Invalid file
+        "401":
+          description: Unauthorized
+        "503":
+          description: S3 unavailable
+
+  /api/user/avatar/{user_id}/:
+    get:
+      summary: Serve avatar
+      description: Authenticated proxy for avatar images stored in S3.
+      tags: [User]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image bytes
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+
+  /api/admin/users/:
+    get:
+      summary: List users
+      description: Returns paginated admin user data. Requires an authenticated admin session.
+      tags: [Admin]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [name, email, role, createdAt]
+        - in: query
+          name: sortDirection
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: role
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, banned]
+        - in: query
+          name: email
+          schema:
+            type: string
+        - in: query
+          name: name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated users
+        "403":
+          description: Forbidden
+
+  /api/admin/users/create/:
+    post:
+      summary: Create user
+      tags: [Admin]
+      responses:
+        "201":
+          description: User created
+        "400":
+          description: Validation error
+        "403":
+          description: Forbidden
+
+  /api/admin/users/{user_id}/ban/:
+    post:
+      summary: Ban user
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User banned
+        "403":
+          description: Forbidden
+
+  /api/admin/users/{user_id}/unban/:
+    post:
+      summary: Unban user
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User unbanned
+        "403":
+          description: Forbidden
+
+  /api/admin/users/{user_id}/role/:
+    post:
+      summary: Set user role
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role updated
+        "403":
+          description: Forbidden
+
+  /api/admin/users/{user_id}/:
+    delete:
+      summary: Delete user
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deleted
+        "403":
+          description: Forbidden
+
+  /api/admin/users/{user_id}/revoke-sessions/:
+    post:
+      summary: Revoke user sessions (admin)
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sessions revoked
+        "403":
+          description: Forbidden

@@ -39,14 +39,14 @@ def init_s3():
             service_name.startswith('com.mendix.storage.')
             and service_name != MENIX_S3_SERVICE
         ):
-            logger.warning(
-                'Storage service "%s" is not S3. Image uploads will use local storage.',
+            logger.error(
+                'Storage service "%s" is not S3-compatible.',
                 service_name,
             )
         else:
-            logger.warning(
-                'S3 is not configured (S3_* env vars missing). '
-                'Image uploads will use local storage.'
+            logger.error(
+                'S3 is not configured. Set S3_ENDPOINT, S3_BUCKET_NAME, '
+                'S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY.'
             )
         _available = False
         _client = None
@@ -54,9 +54,7 @@ def init_s3():
         return False
 
     if not config['bucket']:
-        logger.warning(
-            'S3_BUCKET_NAME is empty after parsing. Image uploads will use local storage.'
-        )
+        logger.error('S3_BUCKET_NAME is empty after parsing.')
         _available = False
         _client = None
         _config = None
@@ -66,7 +64,6 @@ def init_s3():
     if service_name.startswith('com.mendix.storage.'):
         service_name = 's3'
 
-    # S3-compatible gateways often reject boto3's newer default checksum behavior.
     client = boto3.client(
         service_name,
         region_name=config['region'],
@@ -100,10 +97,7 @@ def init_s3():
         _available = False
         _client = None
         _config = None
-        logger.warning(
-            'S3 connection failed. Image uploads will use local storage. Reason: %s',
-            exc,
-        )
+        logger.error('S3 connection failed: %s', exc)
         return False
 
 

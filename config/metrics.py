@@ -22,6 +22,11 @@ USERS_CREATED_TOTAL = Counter(
     'users_created_total',
     'Total users created',
 )
+AVATAR_UPLOADS_TOTAL = Counter(
+    'avatar_uploads_total',
+    'Total avatar upload attempts',
+    ['status'],
+)
 
 _lock = threading.Lock()
 _started = False

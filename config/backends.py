@@ -17,11 +17,9 @@ def ensure_backends():
 
         from django.conf import settings
 
-        from config.database import init_database
+        from config.database import _database_available, init_database
         from storage.s3 import init_s3
-        from users.store import log_backend_mode
 
         init_database(settings.BASE_DIR)
         init_s3()
         _initialized = True
-        log_backend_mode()

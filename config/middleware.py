@@ -9,7 +9,7 @@ class NoCacheMiddleware(MiddlewareMixin):
             return response
 
         path = request.path or ''
-        if path.startswith('/static/') or path.startswith('/media/'):
+        if path.startswith('/static/'):
             return response
 
         content_type = response.get('Content-Type', '')

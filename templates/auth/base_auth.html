@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body %}
+<div class="auth-layout">
+  <aside class="auth-visual" aria-hidden="true">
+    <img src="{% static 'images/auth-illustration.png' %}" alt="" class="auth-illustration">
+  </aside>
+  <main class="auth-panel">
+    <div class="auth-panel-inner">
+      <a href="/auth/sign-in/" class="auth-brand">
+        {% include "partials/app_brand.html" %}
+      </a>
+      {% block auth_content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% endblock %}

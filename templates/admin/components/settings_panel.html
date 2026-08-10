@@ -1,0 +1,62 @@
+<div class="settings-panel">
+  <div class="settings-grid">
+    <section class="card settings-profile">
+      <div class="card-header">
+        <h2>Profile</h2>
+        <p class="muted">Update your display name and profile photo.</p>
+      </div>
+      <form id="settings-form" class="stack">
+        <div class="profile-preview">
+          <button type="button" class="avatar-button" id="avatar-picker">
+            {% if avatar_url %}
+              <img src="{{ avatar_url }}" alt="" class="avatar-image" id="avatar-preview">
+            {% else %}
+              <span class="avatar-fallback" id="avatar-preview">{{ user.name|slice:":2"|upper }}</span>
+            {% endif %}
+            <span class="avatar-overlay">Change photo</span>
+          </button>
+          <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+          <div>
+            <p class="profile-name">{{ user.name }}</p>
+            <p class="muted">{{ user.email }}</p>
+          </div>
+        </div>
+        <label class="field">
+          <span>Name</span>
+          <input type="text" name="name" value="{{ user.name }}" required minlength="2" maxlength="100">
+        </label>
+        <p id="settings-error" class="form-error hidden"></p>
+        <div class="card-actions">
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </section>
+
+    <div class="settings-side">
+      <section class="card">
+        <div class="card-header">
+          <h2>Account</h2>
+          <p class="muted">Important details about your account.</p>
+        </div>
+        <dl class="detail-list">
+          <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
+          <div><dt>Verification</dt><dd>{% if user.email_verified %}<span class="badge badge-success">Verified</span>{% else %}<span class="badge badge-muted">Unverified</span>{% endif %}</dd></div>
+          <div><dt>Role</dt><dd>{{ user.role|default:"user" }}</dd></div>
+          <div><dt>Status</dt><dd>{% if user.banned %}<span class="badge badge-danger">Banned</span>{% else %}<span class="badge badge-success">Active</span>{% endif %}</dd></div>
+          <div><dt>Member since</dt><dd>{{ user.created_at|date:"M j, Y" }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Security</h2>
+          <p class="muted">Account protection and access information.</p>
+        </div>
+        <dl class="detail-list">
+          <div><dt>Password</dt><dd class="muted">Password changes are managed through your authentication provider.</dd></div>
+          <div><dt>User ID</dt><dd><code>{{ user.id }}</code></dd></div>
+        </dl>
+      </section>
+    </div>
+  </div>
+</div>

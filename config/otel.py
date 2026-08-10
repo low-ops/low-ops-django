@@ -1,15 +1,14 @@
 import logging
-import os
+
+from config.env import get_otel_config
 
 logger = logging.getLogger('lowops.otel')
 
 
 def setup_otel():
-    endpoint = (os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT') or '').strip()
-    if not endpoint:
+    otel = get_otel_config()
+    if not otel:
         return
-
-    service_name = (os.environ.get('OTEL_SERVICE_NAME') or 'low-ops-django').strip()
 
     try:
         from opentelemetry import trace
@@ -19,12 +18,12 @@ def setup_otel():
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        resource = Resource.create({'service.name': service_name})
+        resource = Resource.create({'service.name': otel['service_name']})
         provider = TracerProvider(resource=resource)
-        exporter = OTLPSpanExporter(endpoint=f'{endpoint.rstrip("/")}/v1/traces')
+        exporter = OTLPSpanExporter(endpoint=f"{otel['endpoint']}/v1/traces")
         provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
         DjangoInstrumentor().instrument()
-        logger.info('OpenTelemetry tracing enabled (service=%s)', service_name)
+        logger.info('OpenTelemetry tracing enabled (service=%s)', otel['service_name'])
     except Exception as exc:
         logger.warning('OpenTelemetry setup failed: %s', exc)

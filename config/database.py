@@ -1,16 +1,11 @@
 import logging
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 logger = logging.getLogger('lowops.database')
 
 _database_available = False
-
-
-def sqlite_database(base_dir):
-    return {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(base_dir, 'db.sqlite3'),
-    }
 
 
 def build_postgres_database():
@@ -35,9 +30,13 @@ def build_postgres_database():
 
 def configure_databases(base_dir):
     postgres = build_postgres_database()
-    if postgres:
-        return {'default': postgres}
-    return {'default': sqlite_database(base_dir)}
+    if not postgres:
+        raise ImproperlyConfigured(
+            'PostgreSQL is required. Set POSTGRES_HOST, POSTGRES_PORT, '
+            'POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_DATABASE '
+            'in your environment or .env file (copy .env.example to .env).'
+        )
+    return {'default': postgres}
 
 
 def _reset_connections(database_config):
@@ -51,7 +50,6 @@ def _reset_connections(database_config):
         pass
 
     settings.DATABASES = {'default': database_config}
-    # ConnectionHandler.settings is a cached_property; clear it so DATABASES is re-read.
     connections._settings = None
     connections.__dict__.pop('settings', None)
 
@@ -68,11 +66,9 @@ def init_database(base_dir):
 
     postgres = build_postgres_database()
     if not postgres:
-        _reset_connections(sqlite_database(base_dir))
         _database_available = False
-        logger.warning(
-            'Database is not configured (POSTGRES_* env vars missing). '
-            'Falling back to in-memory users store.'
+        logger.error(
+            'PostgreSQL is not configured (POSTGRES_* env vars missing).'
         )
         return False
 
@@ -87,7 +83,12 @@ def init_database(base_dir):
         with connection.cursor() as cursor:
             cursor.execute('SELECT 1')
 
-        call_command('migrate', '--noinput', verbosity=0)
+        call_command('migrate', '--noinput', '--fake-initial', verbosity=0)
+
+        try:
+            call_command('seed', verbosity=0)
+        except Exception as exc:
+            logger.warning('Database seed failed: %s', exc)
 
         _database_available = True
         logger.info(
@@ -99,9 +100,5 @@ def init_database(base_dir):
         return True
     except Exception as exc:
         _database_available = False
-        _reset_connections(sqlite_database(base_dir))
-        logger.warning(
-            'Database connection failed. Falling back to in-memory users store. Reason: %s',
-            exc,
-        )
+        logger.error('Database connection failed: %s', exc)
         return False

@@ -1,0 +1,16 @@
+<header class="page-header">
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs-list">
+      <li class="breadcrumbs-item">
+        <a href="/admin/">Admin</a>
+      </li>
+      {% if breadcrumb_current %}
+      <li class="breadcrumbs-item breadcrumbs-current" aria-current="page">{{ breadcrumb_current }}</li>
+      {% elif '/admin/users' in request.path %}
+      <li class="breadcrumbs-item breadcrumbs-current" aria-current="page">Users</li>
+      {% elif '/admin/settings' in request.path %}
+      <li class="breadcrumbs-item breadcrumbs-current" aria-current="page">Settings</li>
+      {% endif %}
+    </ol>
+  </nav>
+</header>

@@ -2,6 +2,12 @@ import os
 import re
 from urllib.parse import urlparse
 
+from config.env import (
+    get_s3_config as get_spec_s3_config,
+    normalize_s3_endpoint,
+    parse_s3_bucket_name,
+)
+
 MENIX_S3_SERVICE = 'com.mendix.storage.s3'
 AWS_REGION_PATTERN = re.compile(r'^[a-z]{2}(?:-[a-z]+)+-\d+$')
 
@@ -12,31 +18,6 @@ def parse_boolean_env(value):
     return value.strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
-def parse_bucket_config(raw):
-    """Low-Ops sets S3_BUCKET_NAME as `bucket` or `bucket/prefix[/more]`."""
-    normalized = raw.strip().strip('/')
-    if not normalized:
-        return {'bucket': '', 'prefix': ''}
-
-    slash_index = normalized.find('/')
-    if slash_index == -1:
-        return {'bucket': normalized, 'prefix': ''}
-
-    return {
-        'bucket': normalized[:slash_index],
-        'prefix': normalized[slash_index + 1:].strip('/'),
-    }
-
-
-def normalize_endpoint(raw):
-    trimmed = (raw or '').strip().rstrip('/')
-    if not trimmed:
-        return trimmed
-    if re.match(r'^https?://', trimmed, re.IGNORECASE):
-        return trimmed
-    return f'https://{trimmed}'
-
-
 def is_likely_aws_region(value):
     if not value:
         return False
@@ -45,7 +26,7 @@ def is_likely_aws_region(value):
 
 def extract_region_from_endpoint(endpoint):
     try:
-        host = urlparse(normalize_endpoint(endpoint)).hostname or ''
+        host = urlparse(normalize_s3_endpoint(endpoint)).hostname or ''
         host = host.lower()
         match = re.search(r'\.s3[.-]([a-z0-9-]+)\.amazonaws\.com$', host) or re.search(
             r'^s3[.-]([a-z0-9-]+)\.amazonaws\.com$', host
@@ -59,7 +40,7 @@ def extract_region_from_endpoint(endpoint):
     return None
 
 
-def resolve_s3_region(endpoint):
+def resolve_s3_region(endpoint, default_region):
     for candidate in (
         os.environ.get('S3_REGION'),
         os.environ.get('AWS_REGION'),
@@ -68,7 +49,7 @@ def resolve_s3_region(endpoint):
     ):
         if is_likely_aws_region(candidate):
             return candidate.strip()
-    return extract_region_from_endpoint(endpoint) or 'us-east-1'
+    return extract_region_from_endpoint(endpoint) or default_region
 
 
 def has_s3_config():
@@ -91,19 +72,27 @@ def resolve_s3_config():
     if not has_s3_config():
         return None
 
-    endpoint = normalize_endpoint(os.environ['S3_ENDPOINT'])
-    bucket_parts = parse_bucket_config(os.environ['S3_BUCKET_NAME'])
-    region = resolve_s3_region(endpoint)
+    try:
+        spec = get_spec_s3_config()
+    except Exception:
+        return None
+
+    bucket_parts = parse_s3_bucket_name(os.environ['S3_BUCKET_NAME'])
+    if not bucket_parts['bucket']:
+        return None
+
+    endpoint = spec['endpoint']
+    region = resolve_s3_region(endpoint, spec['region'])
 
     return {
-        'access_key_id': os.environ['S3_ACCESS_KEY_ID'],
-        'secret_access_key': os.environ['S3_SECRET_ACCESS_KEY'],
-        'bucket': bucket_parts['bucket'],
-        'prefix': bucket_parts['prefix'],
+        'access_key_id': spec['access_key_id'],
+        'secret_access_key': spec['secret_access_key'],
+        'bucket': spec['bucket'],
+        'prefix': spec['prefix'],
         'endpoint': endpoint,
+        'public_base_url': spec['public_base_url'],
         'region': region,
-        # Low-Ops / MinIO require path-style access.
-        'force_path_style': True,
+        'force_path_style': spec['force_path_style'],
         'perform_delete': parse_boolean_env(os.environ.get('S3_PERFORM_DELETE')),
         'service_name': (os.environ.get('S3_SERVICE_NAME') or 's3').strip() or 's3',
     }

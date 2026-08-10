@@ -1,63 +1,102 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: low-ops-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: low_ops
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d low_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: low-ops-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: low-ops-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb local/low-ops-uploads --ignore-existing &&
+      mc anonymous set download local/low-ops-uploads &&
+      exit 0
+      "
+
   app:
-    build: .
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: low-ops-app
+    restart: unless-stopped
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
       - "${METRICS_PORT:-8001}:${METRICS_PORT:-8001}"
     environment:
       PORT: ${PORT:-8000}
       METRICS_PORT: ${METRICS_PORT:-8001}
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-change-me}
-      DEBUG: ${DEBUG:-true}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-change-me-in-production}
       APPLICATION_URL: ${APPLICATION_URL:-http://localhost:8000}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: low_ops
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DATABASE: people_desk
       S3_ENDPOINT: http://minio:9000
-      S3_BUCKET_NAME: myapp-uploads
+      S3_BUCKET_NAME: low-ops-uploads
       S3_ACCESS_KEY_ID: minioadmin
       S3_SECRET_ACCESS_KEY: minioadmin
       S3_REGION: us-east-1
-      S3_PERFORM_DELETE: "true"
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-low-ops-django-template}
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: people_desk
-    ports:
-      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d people_desk"]
-      interval: 5s
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')\""]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 30s
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
-      mc mb -p local/myapp-uploads || true;
-      exit 0;
-      "
+volumes:
+  postgres_data:
+  minio_data:

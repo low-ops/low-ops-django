@@ -1,0 +1,35 @@
+{% extends "auth/base_auth.html" %}
+{% load static %}
+
+{% block page_title %}Sign in{% endblock %}
+
+{% block auth_content %}
+<div class="auth-card">
+  <div class="auth-card-header">
+    <h2>Sign in to your account</h2>
+    <p>Enter your email below to sign in to your account</p>
+  </div>
+  <form id="sign-in-form" class="stack">
+    <label class="field">
+      <span>Email</span>
+      <input type="email" name="email" autocomplete="email" required placeholder="name@example.com">
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <div class="password-field">
+        <input type="password" name="password" autocomplete="current-password" required placeholder="Enter your password">
+        <button type="button" class="icon-btn password-toggle" aria-label="Show password">👁</button>
+      </div>
+    </label>
+    <p id="sign-in-error" class="form-error hidden"></p>
+    <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+  </form>
+  <p class="auth-footer">
+    Don't have an account? <a href="/auth/sign-up/">Sign up</a>
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/auth.js' %}"></script>
+{% endblock %}

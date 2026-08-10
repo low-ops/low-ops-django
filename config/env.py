@@ -1,0 +1,205 @@
+import os
+import re
+from urllib.parse import urlparse
+
+AWS_REGION_PATTERN = re.compile(r'^[a-z]{2}(?:-[a-z]+)+-\d+$')
+
+DEFAULT_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
+DEFAULT_APPLICATION_URL = 'http://localhost:8000'
+
+
+class EnvValidationError(Exception):
+    pass
+
+
+def get_postgres_config():
+    required = {
+        'POSTGRES_HOST': os.environ.get('POSTGRES_HOST', '').strip(),
+        'POSTGRES_DATABASE': os.environ.get('POSTGRES_DATABASE', '').strip(),
+        'POSTGRES_USER': os.environ.get('POSTGRES_USER', '').strip(),
+        'POSTGRES_PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+    }
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        raise EnvValidationError(
+            f'Missing required PostgreSQL env vars: {", ".join(missing)}'
+        )
+
+    return {
+        **required,
+        'POSTGRES_PORT': os.environ.get('POSTGRES_PORT', '5432').strip() or '5432',
+    }
+
+
+def get_database_url():
+    postgres = get_postgres_config()
+    from urllib.parse import quote
+
+    password = quote(postgres['POSTGRES_PASSWORD'], safe='')
+    return (
+        f"postgresql://{postgres['POSTGRES_USER']}:{password}"
+        f"@{postgres['POSTGRES_HOST']}:{postgres['POSTGRES_PORT']}"
+        f"/{postgres['POSTGRES_DATABASE']}"
+    )
+
+
+def normalize_s3_endpoint(value):
+    trimmed = (value or '').strip().rstrip('/')
+    if not trimmed:
+        return trimmed
+
+    if re.match(r'^https?://', trimmed, re.IGNORECASE):
+        return trimmed
+
+    is_local = (
+        trimmed.startswith('localhost')
+        or trimmed.startswith('127.0.0.1')
+        or trimmed.startswith('minio')
+        or ':9000' in trimmed
+    )
+    return f"{'http' if is_local else 'https'}://{trimmed}"
+
+
+def get_s3_public_base_url(endpoint):
+    configured = (os.environ.get('S3_PUBLIC_BASE_URL') or '').strip()
+    return normalize_s3_endpoint(configured or endpoint).rstrip('/')
+
+
+def parse_s3_bucket_name(value):
+    trimmed = (value or '').strip().strip('/')
+    slash_index = trimmed.find('/')
+
+    if slash_index == -1:
+        return {'bucket': trimmed, 'prefix': ''}
+
+    return {
+        'bucket': trimmed[:slash_index],
+        'prefix': trimmed[slash_index + 1 :].strip('/'),
+    }
+
+
+def resolve_s3_object_key(relative_key, prefix=''):
+    normalized_key = relative_key.lstrip('/')
+    normalized_prefix = prefix.strip('/')
+
+    if not normalized_prefix:
+        return normalized_key
+
+    if (
+        normalized_key == normalized_prefix
+        or normalized_key.startswith(f'{normalized_prefix}/')
+    ):
+        return normalized_key
+
+    return f'{normalized_prefix}/{normalized_key}'
+
+
+def get_s3_config():
+    required = {
+        'S3_ENDPOINT': os.environ.get('S3_ENDPOINT', '').strip(),
+        'S3_BUCKET_NAME': os.environ.get('S3_BUCKET_NAME', '').strip(),
+        'S3_ACCESS_KEY_ID': os.environ.get('S3_ACCESS_KEY_ID', '').strip(),
+        'S3_SECRET_ACCESS_KEY': os.environ.get('S3_SECRET_ACCESS_KEY', '').strip(),
+    }
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        raise EnvValidationError(
+            f'Missing required S3 env vars: {", ".join(missing)}'
+        )
+
+    bucket_parts = parse_s3_bucket_name(required['S3_BUCKET_NAME'])
+    endpoint = normalize_s3_endpoint(required['S3_ENDPOINT'])
+
+    return {
+        'endpoint': endpoint,
+        'bucket': bucket_parts['bucket'],
+        'prefix': bucket_parts['prefix'],
+        'public_base_url': get_s3_public_base_url(endpoint),
+        'access_key_id': required['S3_ACCESS_KEY_ID'],
+        'secret_access_key': required['S3_SECRET_ACCESS_KEY'],
+        'region': (os.environ.get('S3_REGION') or 'us-east-1').strip() or 'us-east-1',
+        'force_path_style': True,
+    }
+
+
+def get_s3_object_url(key):
+    config = get_s3_config()
+    object_key = resolve_s3_object_key(key, config['prefix'])
+    return f"{config['public_base_url']}/{config['bucket']}/{object_key}"
+
+
+def get_app_port():
+    try:
+        port = int(os.environ.get('PORT', '8000'))
+    except ValueError:
+        return 8000
+    return port if port > 0 else 8000
+
+
+def get_metrics_port():
+    try:
+        port = int(os.environ.get('METRICS_PORT', '8001'))
+    except ValueError:
+        return 8001
+    return port if port > 0 else 8001
+
+
+def normalize_app_url(value):
+    trimmed = (value or '').strip()
+    if not trimmed:
+        return None
+
+    with_protocol = (
+        trimmed
+        if trimmed.startswith('http://') or trimmed.startswith('https://')
+        else f'https://{trimmed}'
+    )
+
+    try:
+        parsed = urlparse(with_protocol)
+        pathname = parsed.path.rstrip('/')
+        host = parsed.netloc
+        if not host:
+            return None
+        base = f'{parsed.scheme}://{host}'
+        if pathname and pathname != '/':
+            base += pathname
+        return base
+    except Exception:
+        return None
+
+
+def get_application_url():
+    return normalize_app_url(os.environ.get('APPLICATION_URL'))
+
+
+def get_otel_config():
+    endpoint = (os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT') or '').strip()
+    service_name = (os.environ.get('OTEL_SERVICE_NAME') or '').strip()
+
+    if not endpoint or not service_name:
+        return None
+
+    return {
+        'endpoint': endpoint.rstrip('/'),
+        'service_name': service_name,
+    }
+
+
+def get_secret_key(*, strict=False):
+    secret = (os.environ.get('SECRET_KEY') or '').strip()
+
+    if strict and (not secret or len(secret) < 32):
+        raise EnvValidationError('SECRET_KEY must be at least 32 characters.')
+
+    if secret and len(secret) >= 32:
+        return secret
+    return DEFAULT_SECRET_KEY
+
+
+def validate_runtime_env():
+    get_postgres_config()
+    get_s3_config()
+    get_secret_key(strict=True)
+    if not get_application_url():
+        raise EnvValidationError('Set APPLICATION_URL.')

@@ -1,0 +1,44 @@
+<div class="users-panel">
+  <div class="users-panel-toolbar">
+    <div class="toolbar-filters">
+      <label class="search-field search-field-compact">
+        <span class="sr-only">Search by email</span>
+        <input type="search" id="users-search" placeholder="Search by email...">
+      </label>
+      <label class="select-field select-field-compact">
+        <select id="users-role-filter">
+          <option value="all">All Roles</option>
+          <option value="admin">Admin</option>
+          <option value="user">User</option>
+        </select>
+      </label>
+    </div>
+    <button type="button" class="btn btn-primary" id="add-user-btn">Add a user</button>
+  </div>
+
+  <div class="users-table-shell">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Verification</th>
+            <th>Accounts</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Sign In</th>
+            <th>Created At</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="users-table-body">
+          <tr><td colspan="8" class="loading-cell">Loading users...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <p id="users-count" class="muted">Showing 0 of 0 users</p>
+      <div id="users-pagination" class="pagination"></div>
+    </div>
+  </div>
+</div>
