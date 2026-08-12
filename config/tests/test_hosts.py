@@ -18,6 +18,26 @@ class BuildAllowedHostsTests(unittest.TestCase):
         self.assertIn('app.example.com', hosts)
         self.assertIn('localhost', hosts)
 
+    def test_falls_back_to_ci_cinaq_domain_when_application_url_unset(self):
+        with patch.dict(
+            os.environ,
+            {'APPLICATION_URL': '', 'ALLOWED_HOSTS': ''},
+            clear=False,
+        ):
+            hosts = build_allowed_hosts(debug=False)
+        self.assertIn('.ci.cinaq.com', hosts)
+
+    def test_ci_cinaq_subdomain_is_allowed(self):
+        with patch.dict(
+            os.environ,
+            {'APPLICATION_URL': '', 'ALLOWED_HOSTS': ''},
+            clear=False,
+        ):
+            hosts = build_allowed_hosts(debug=False)
+        from django.http.request import validate_host
+
+        self.assertTrue(validate_host('django-dev.ci.cinaq.com', hosts))
+
     def test_includes_pod_ip_when_set(self):
         with patch.dict(
             os.environ,

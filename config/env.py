@@ -176,6 +176,13 @@ def get_application_url():
     return normalize_app_url(os.environ.get('APPLICATION_URL'))
 
 
+def get_application_hostname():
+    application_url = get_application_url()
+    if not application_url:
+        return None
+    return urlparse(application_url).hostname
+
+
 def get_otel_config():
     endpoint = (os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT') or '').strip()
     service_name = (os.environ.get('OTEL_SERVICE_NAME') or '').strip()
