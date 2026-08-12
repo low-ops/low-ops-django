@@ -8,6 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from config.database import configure_databases
 from config.env import DEFAULT_APPLICATION_URL, get_application_url
+from config.hosts import build_allowed_hosts, patch_validate_host_for_kubernetes
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -15,16 +16,8 @@ BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
 SECRET_KEY = os.environ.get('SECRET_KEY', '').strip() or BUILD_TIME_SECRET_KEY
 DEBUG = os.environ.get('DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
 
-_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '').strip()
-if _allowed_hosts:
-    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(',') if host.strip()]
-elif DEBUG:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
-else:
-    raise ImproperlyConfigured(
-        'ALLOWED_HOSTS must be set when DEBUG is false '
-        '(comma-separated hostnames).'
-    )
+ALLOWED_HOSTS = build_allowed_hosts(debug=DEBUG)
+patch_validate_host_for_kubernetes()
 
 if not DEBUG and SECRET_KEY == BUILD_TIME_SECRET_KEY:
     raise ImproperlyConfigured(
