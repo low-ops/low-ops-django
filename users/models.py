@@ -72,3 +72,15 @@ class Verification(models.Model):
 
     class Meta:
         db_table = 'verification'
+
+
+class LoginAttempt(models.Model):
+    id = models.CharField(primary_key=True, max_length=36, default=generate_id, editable=False)
+    email = models.EmailField(unique=True)
+    failures = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'login_attempt'

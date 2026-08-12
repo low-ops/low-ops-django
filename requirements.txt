@@ -5,6 +5,7 @@ Pillow==12.3.0
 djangorestframework==3.17.1
 drf-spectacular==0.29.0
 django-cors-headers==4.9.0
+whitenoise==6.9.0
 psycopg[binary]==3.3.4
 boto3==1.43.62
 prometheus-client==0.23.1

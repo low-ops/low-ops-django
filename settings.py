@@ -4,23 +4,39 @@ load_dotenv_file()
 
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 from config.database import configure_databases
 from config.env import DEFAULT_APPLICATION_URL, get_application_url
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Django requires this internally for sessions/signing; optional SECRET_KEY env override.
-SECRET_KEY = (
-    os.environ.get('SECRET_KEY', '').strip()
-    or 'build-time-placeholder-secret-min-32-chars!!'
-)
+BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
+SECRET_KEY = os.environ.get('SECRET_KEY', '').strip() or BUILD_TIME_SECRET_KEY
 DEBUG = os.environ.get('DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
-ALLOWED_HOSTS = ['*']
+
+_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '').strip()
+if _allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(',') if host.strip()]
+elif DEBUG:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+else:
+    raise ImproperlyConfigured(
+        'ALLOWED_HOSTS must be set when DEBUG is false '
+        '(comma-separated hostnames).'
+    )
+
+if not DEBUG and SECRET_KEY == BUILD_TIME_SECRET_KEY:
+    raise ImproperlyConfigured(
+        'SECRET_KEY must be set to a unique value when DEBUG is false.'
+    )
 
 ROOT_URLCONF = 'urls'
 WSGI_APPLICATION = 'wsgi.application'
 
 INSTALLED_APPS = [
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',
@@ -29,8 +45,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'users.middleware.AuthMiddleware',
     'config.metrics.PrometheusMiddleware',
     'config.middleware.NoCacheMiddleware',
@@ -44,6 +63,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'django.template.context_processors.csrf',
                 'users.context_processors.current_user',
             ],
         },
@@ -57,15 +77,33 @@ TIME_ZONE = 'UTC'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'assets')]
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+MAX_LOGIN_ATTEMPTS = int(os.environ.get('MAX_LOGIN_ATTEMPTS', '5'))
+LOGIN_LOCKOUT_MINUTES = int(os.environ.get('LOGIN_LOCKOUT_MINUTES', '15'))
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'users.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'UNAUTHENTICATED_USER': None,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -83,13 +121,25 @@ SPECTACULAR_SETTINGS = {
 
 APPLICATION_URL = get_application_url() or DEFAULT_APPLICATION_URL
 EMAIL_VERIFICATION_ENABLED = bool(os.environ.get('RESEND_API_KEY', '').strip())
-ALLOW_PUBLIC_SIGN_UP = os.environ.get('ALLOW_PUBLIC_SIGN_UP', 'false').lower() in {
-    '1', 'true', 'yes', 'on',
-}
+
 if get_application_url():
     CORS_ALLOWED_ORIGINS = [get_application_url()]
+    CSRF_TRUSTED_ORIGINS = [get_application_url()]
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+    ]
+
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    CSRF_COOKIE_SECURE = True
+    if os.environ.get('SECURE_SSL_REDIRECT', 'true').lower() in {'1', 'true', 'yes', 'on'}:
+        SECURE_SSL_REDIRECT = True
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 LOGGING = {
     'version': 1,

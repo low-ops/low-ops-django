@@ -1,9 +1,9 @@
-from rest_framework.authentication import BaseAuthentication
+from rest_framework.authentication import SessionAuthentication as DRFSessionAuthentication
 
 from users.auth_core import get_user_from_request
 
 
-class SessionAuthentication(BaseAuthentication):
+class SessionAuthentication(DRFSessionAuthentication):
     def authenticate(self, request):
         user = getattr(request, 'user_obj', None)
         if user is None:
@@ -11,4 +11,5 @@ class SessionAuthentication(BaseAuthentication):
             request.user_obj = user
         if user is None:
             return None
+        self.enforce_csrf(request)
         return (user, None)

@@ -1,18 +1,18 @@
-import re
 import secrets
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Account, Session, User, Verification
+from users.login_throttle import check_login_allowed, clear_login_attempts, record_login_failure
+from users.models import Account, Session, User, Verification
+from users.token_hashing import hash_token
 
 SESSION_COOKIE = 'session_token'
 SESSION_DAYS = 30
-PASSWORD_PATTERN = re.compile(
-    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
-)
 
 
 def is_admin_role(role):
@@ -22,11 +22,10 @@ def is_admin_role(role):
 
 
 def validate_password(password):
-    if not PASSWORD_PATTERN.match(password or ''):
-        return (
-            'Password must be at least 8 characters and include '
-            'uppercase, lowercase, and a number.'
-        )
+    try:
+        django_validate_password(password)
+    except ValidationError as exc:
+        return ' '.join(exc.messages)
     return None
 
 
@@ -35,8 +34,9 @@ def get_user_from_request(request):
     if not token:
         return None
 
+    token_hash = hash_token(token)
     try:
-        session = Session.objects.select_related('user').get(token=token)
+        session = Session.objects.select_related('user').get(token=token_hash)
     except Session.DoesNotExist:
         return None
 
@@ -60,9 +60,10 @@ def get_user_from_request(request):
 
 def create_session(request, user):
     token = secrets.token_urlsafe(32)
+    token_hash = hash_token(token)
     expires_at = timezone.now() + timedelta(days=SESSION_DAYS)
     session = Session.objects.create(
-        token=token,
+        token=token_hash,
         expires_at=expires_at,
         user=user,
         ip_address=_client_ip(request),
@@ -74,7 +75,7 @@ def create_session(request, user):
 def clear_session(request, response):
     token = request.COOKIES.get(SESSION_COOKIE)
     if token:
-        Session.objects.filter(token=token).delete()
+        Session.objects.filter(token=hash_token(token)).delete()
     response.delete_cookie(SESSION_COOKIE)
 
 
@@ -92,16 +93,24 @@ def attach_session_cookie(response, token):
 
 def sign_in_with_password(request, email, password):
     email = (email or '').strip().lower()
+
+    lockout_error = check_login_allowed(email)
+    if lockout_error:
+        return None, lockout_error
+
     try:
         user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
+        record_login_failure(email)
         return None, 'Invalid email or password.'
 
     account = Account.objects.filter(user=user, provider_id='credential').first()
     if account is None or not account.password:
+        record_login_failure(email)
         return None, 'Invalid email or password.'
 
     if not check_password(password, account.password):
+        record_login_failure(email)
         return None, 'Invalid email or password.'
 
     if user.banned:
@@ -117,6 +126,7 @@ def sign_in_with_password(request, email, password):
     if not user.email_verified and settings.EMAIL_VERIFICATION_ENABLED:
         return None, 'Please verify your email before signing in.'
 
+    clear_login_attempts(email)
     session, token = create_session(request, user)
     return {'user': user, 'session': session, 'token': token}, None
 
@@ -141,7 +151,7 @@ def create_credential_user(name, email, password, *, email_verified=False, role=
 def revoke_user_sessions(user_id, except_token=None):
     qs = Session.objects.filter(user_id=user_id)
     if except_token:
-        qs = qs.exclude(token=except_token)
+        qs = qs.exclude(token=hash_token(except_token))
     return qs.delete()[0]
 
 
@@ -151,15 +161,18 @@ def create_verification_token(identifier):
     expires_at = timezone.now() + timedelta(hours=24)
     Verification.objects.create(
         identifier=identifier,
-        value=token,
+        value=hash_token(token),
         expires_at=expires_at,
     )
     return token
 
 
 def verify_email_token(token):
+    if not token:
+        return None, 'Invalid or expired verification link.'
+
     try:
-        record = Verification.objects.get(value=token)
+        record = Verification.objects.get(value=hash_token(token))
     except Verification.DoesNotExist:
         return None, 'Invalid or expired verification link.'
 

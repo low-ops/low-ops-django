@@ -1,7 +1,8 @@
-from django.conf import settings
 from django.shortcuts import redirect, render
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from users.auth_core import is_admin_role, verify_email_token
+from users.registration import is_registration_open
 from users.services.users import avatar_url
 
 
@@ -10,20 +11,26 @@ def landing(request):
         if is_admin_role(request.user_obj.role):
             return redirect('/admin/users/')
         return redirect('/admin/settings/')
+    if is_registration_open():
+        return redirect('/auth/sign-up/')
     return redirect('/auth/sign-in/')
 
 
+@ensure_csrf_cookie
 def sign_in(request):
+    if is_registration_open():
+        return redirect('/auth/sign-up/')
     if request.user_obj:
         return redirect('/admin/')
     return render(request, 'auth/sign_in.html')
 
 
+@ensure_csrf_cookie
 def sign_up(request):
+    if not is_registration_open():
+        return redirect('/auth/sign-in/')
     if request.user_obj:
         return redirect('/admin/')
-    if not settings.ALLOW_PUBLIC_SIGN_UP:
-        return redirect('/auth/sign-in/')
     return render(request, 'auth/sign_up.html')
 
 

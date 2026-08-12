@@ -11,10 +11,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 RUN chmod +x entrypoint.sh \
+    && POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DATABASE=low_ops \
+       POSTGRES_USER=postgres POSTGRES_PASSWORD=postgres \
+       python manage.py collectstatic --noinput \
     && python -c "import compileall; compileall.compile_dir('.', quiet=1)"
 
 ENV PORT=8000
 ENV METRICS_PORT=8001
-EXPOSE 8000 8001
+ENV METRICS_BIND_HOST=127.0.0.1
+EXPOSE 8000
 
 ENTRYPOINT ["./entrypoint.sh"]

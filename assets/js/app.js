@@ -7,14 +7,37 @@ function showToast(message) {
   showToast._timer = window.setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
 async function apiFetch(url, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers || {}),
+  };
+  if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRFToken'] = csrfToken;
+    }
+  }
+
   const response = await fetch(url, {
     credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(options.headers || {}),
-    },
+    headers,
     ...options,
   });
 
@@ -34,3 +57,4 @@ async function apiFetch(url, options = {}) {
 
 window.showToast = showToast;
 window.apiFetch = apiFetch;
+window.escapeHtml = escapeHtml;

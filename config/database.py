@@ -7,6 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 logger = logging.getLogger('lowops.database')
 
 _database_available = False
+MIGRATION_LOCK_ID = 71390421
 
 
 def build_postgres_database():
@@ -26,6 +27,8 @@ def build_postgres_database():
         'PASSWORD': password,
         'HOST': host,
         'PORT': port,
+        'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '600')),
+        'CONN_HEALTH_CHECKS': True,
     }
 
 
@@ -62,6 +65,34 @@ def is_database_available():
     return _database_available
 
 
+def run_migrations():
+    from django.core.management import call_command
+    from django.db import connection
+
+    for attempt in range(1, 31):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT pg_try_advisory_lock(%s)', [MIGRATION_LOCK_ID])
+            acquired = cursor.fetchone()[0]
+
+        if acquired:
+            try:
+                call_command('migrate', '--noinput', verbosity=0)
+            finally:
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT pg_advisory_unlock(%s)', [MIGRATION_LOCK_ID])
+            return
+
+        if attempt >= 30:
+            logger.warning('Could not acquire migration lock; skipping migrations.')
+            return
+
+        logger.info(
+            'Waiting for migration lock (attempt %s/30)',
+            attempt,
+        )
+        time.sleep(1)
+
+
 def init_database(base_dir):
     global _database_available
 
@@ -78,7 +109,6 @@ def init_database(base_dir):
     max_attempts = int(os.environ.get('DB_CONNECT_ATTEMPTS', '30'))
 
     try:
-        from django.core.management import call_command
         from django.db import connections
 
         connection = connections['default']
@@ -98,12 +128,7 @@ def init_database(base_dir):
                 )
                 time.sleep(1)
 
-        call_command('migrate', '--noinput', '--fake-initial', verbosity=0)
-
-        try:
-            call_command('seed', verbosity=0)
-        except Exception as exc:
-            logger.warning('Database seed failed: %s', exc)
+        run_migrations()
 
         _database_available = True
         logger.info(

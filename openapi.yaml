@@ -29,7 +29,9 @@ paths:
   /metrics:
     get:
       summary: Prometheus metrics
-      description: Served on METRICS_PORT (default 8001), not the main app port.
+      description: |
+        Served on METRICS_PORT (default 8001), not the main app port.
+        Requires `Authorization: Bearer <METRICS_AUTH_TOKEN>` when DEBUG is false.
       tags: [Platform]
       servers:
         - url: http://localhost:8001
@@ -64,7 +66,7 @@ paths:
   /api/auth/sign-up/:
     post:
       summary: Sign up
-      description: Returns 403 when ALLOW_PUBLIC_SIGN_UP is not enabled.
+      description: Returns 403 once the first user has already been registered.
       tags: [Auth]
       requestBody:
         required: true

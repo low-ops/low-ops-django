@@ -1,5 +1,6 @@
 from django.conf import settings
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -14,17 +15,19 @@ from users.auth_core import (
     validate_password,
     verify_email_token,
 )
+from users.csrf import enforce_csrf
 from users.models import User
 from users.permissions import IsAuthenticated
-from users.services.email import is_email_verification_enabled, send_verification_email
-from users.services.founding_admins import apply_founding_admin
+from users.registration import is_registration_open
+from users.services.email import send_verification_email
 
 
 class SignInView(APIView):
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
+        enforce_csrf(request)
         email = request.data.get('email', '')
         password = request.data.get('password', '')
         result, error = sign_in_with_password(request, email, password)
@@ -38,10 +41,11 @@ class SignInView(APIView):
 
 class SignUpView(APIView):
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        if not settings.ALLOW_PUBLIC_SIGN_UP:
+        enforce_csrf(request)
+        if not is_registration_open():
             return Response({'error': 'Sign up is disabled.'}, status=403)
 
         name = (request.data.get('name') or '').strip()
@@ -58,22 +62,16 @@ class SignUpView(APIView):
         if User.objects.filter(email__iexact=email).exists():
             return Response({'error': 'An account with this email already exists.'}, status=400)
 
-        existing_count = User.objects.count()
-        user_data = apply_founding_admin(
-            {'name': name, 'email': email, 'role': 'user', 'email_verified': False},
-            existing_count,
-        )
-        email_verified = user_data.get('email_verified', False) or not settings.EMAIL_VERIFICATION_ENABLED
-
+        email_verified = not settings.EMAIL_VERIFICATION_ENABLED
         user = create_credential_user(
             name,
             email,
             password,
             email_verified=email_verified,
-            role=user_data.get('role', 'user'),
+            role='admin',
         )
 
-        if settings.EMAIL_VERIFICATION_ENABLED and not email_verified:
+        if settings.EMAIL_VERIFICATION_ENABLED:
             token = create_verification_token(user.email)
             verify_url = f'{settings.APPLICATION_URL}/auth/verify/?token={token}'
             send_verification_email(user, verify_url)
@@ -99,9 +97,10 @@ class SessionView(APIView):
 
 class VerifyEmailView(APIView):
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
+        enforce_csrf(request)
         token = request.data.get('token') or request.query_params.get('token')
         user, error = verify_email_token(token)
         if error:

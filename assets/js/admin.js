@@ -68,21 +68,29 @@ function renderUsers(data) {
   if (!data.users.length) {
     tableBody.innerHTML = '<tr><td colspan="8" class="loading-cell">No users found.</td></tr>';
   } else {
-    tableBody.innerHTML = data.users.map((user) => `
+    tableBody.innerHTML = data.users.map((user) => {
+      const safeName = escapeHtml(user.name);
+      const safeEmail = escapeHtml(user.email);
+      const safeId = escapeHtml(user.id);
+      const safeRole = escapeHtml(user.role || 'user');
+      const safeAvatarUrl = escapeHtml(user.avatarUrl);
+      const safeAccounts = escapeHtml((user.accounts || []).join(', ') || 'credential');
+      const initials = escapeHtml((user.name || '').slice(0, 2).toUpperCase());
+      return `
       <tr>
         <td>
           <div class="user-cell">
             ${user.avatarUrl
-              ? `<img src="${user.avatarUrl}" alt="" class="avatar">`
-              : `<span class="avatar-fallback">${user.name.slice(0, 2).toUpperCase()}</span>`}
+              ? `<img src="${safeAvatarUrl}" alt="" class="avatar">`
+              : `<span class="avatar-fallback">${initials}</span>`}
             <div>
-              <strong>${user.name}</strong>
-              <span>${user.email}</span>
+              <strong>${safeName}</strong>
+              <span>${safeEmail}</span>
             </div>
           </div>
         </td>
         <td>${verificationBadge(user.verified)}</td>
-        <td>${(user.accounts || []).join(', ') || 'credential'}</td>
+        <td>${safeAccounts}</td>
         <td>${roleBadge(user.role || 'user')}</td>
         <td>${user.banned ? badge('Banned', 'danger') : badge('Active', 'success')}</td>
         <td>${formatDate(user.lastSignIn)}</td>
@@ -91,17 +99,18 @@ function renderUsers(data) {
           <div class="actions-menu">
             <button type="button" class="icon-btn" data-menu-toggle aria-label="Open menu">⋯</button>
             <div class="menu-panel hidden" data-menu-panel>
-              <button type="button" data-action="role" data-user-id="${user.id}" data-user-role="${user.role || 'user'}">Update role</button>
+              <button type="button" data-action="role" data-user-id="${safeId}" data-user-role="${safeRole}">Update role</button>
               ${user.banned
-                ? `<button type="button" data-action="unban" data-user-id="${user.id}">Unban user</button>`
-                : `<button type="button" data-action="ban" data-user-id="${user.id}">Ban user</button>`}
-              <button type="button" data-action="revoke" data-user-id="${user.id}">Revoke sessions</button>
-              <button type="button" data-action="delete" data-user-id="${user.id}" data-user-name="${user.name}" data-user-email="${user.email}">Delete user</button>
+                ? `<button type="button" data-action="unban" data-user-id="${safeId}">Unban user</button>`
+                : `<button type="button" data-action="ban" data-user-id="${safeId}">Ban user</button>`}
+              <button type="button" data-action="revoke" data-user-id="${safeId}">Revoke sessions</button>
+              <button type="button" data-action="delete" data-user-id="${safeId}" data-user-name="${safeName}" data-user-email="${safeEmail}">Delete user</button>
             </div>
           </div>
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   }
 
   countEl.textContent = `Showing ${data.users.length} of ${data.total} users`;
@@ -141,7 +150,7 @@ async function loadUsers() {
     const data = await apiFetch(`/api/admin/users/?${params.toString()}`);
     renderUsers(data);
   } catch (error) {
-    tableBody.innerHTML = `<tr><td colspan="8" class="loading-cell">${error.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="8" class="loading-cell">${escapeHtml(error.message)}</td></tr>`;
   }
 }
 

@@ -143,6 +143,10 @@ def get_metrics_port():
     return port if port > 0 else 8001
 
 
+def get_metrics_bind_host():
+    return (os.environ.get('METRICS_BIND_HOST') or '127.0.0.1').strip() or '127.0.0.1'
+
+
 def normalize_app_url(value):
     trimmed = (value or '').strip()
     if not trimmed:
