@@ -8,7 +8,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 from config.database import configure_databases
 from config.env import DEFAULT_APPLICATION_URL, get_application_url
-from config.hosts import build_allowed_hosts, patch_validate_host_for_kubernetes
+from config.hosts import (
+    build_allowed_hosts,
+    build_csrf_trusted_origins,
+    patch_validate_host_for_kubernetes,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -117,22 +121,20 @@ EMAIL_VERIFICATION_ENABLED = bool(os.environ.get('RESEND_API_KEY', '').strip())
 
 if get_application_url():
     CORS_ALLOWED_ORIGINS = [get_application_url()]
-    CSRF_TRUSTED_ORIGINS = [get_application_url()]
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
-    CSRF_TRUSTED_ORIGINS = [
-        'http://localhost:8000',
-        'http://127.0.0.1:8000',
-    ]
+
+CSRF_TRUSTED_ORIGINS = build_csrf_trusted_origins(debug=DEBUG)
 
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     if os.environ.get('SECURE_SSL_REDIRECT', 'true').lower() in {'1', 'true', 'yes', 'on'}:
         SECURE_SSL_REDIRECT = True
-        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 LOGGING = {
     'version': 1,

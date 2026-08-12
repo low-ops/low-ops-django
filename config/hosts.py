@@ -10,6 +10,8 @@ from config.env import get_application_hostname, get_application_url
 _LOOPBACK_HOSTS = ('localhost', '127.0.0.1', '[::1]')
 # Matches the Low-Ops Next.js template fallback when APPLICATION_URL is unset.
 _LOWOPS_DEFAULT_HOST_PATTERNS = ('.ci.cinaq.com',)
+_LOWOPS_DEFAULT_CSRF_ORIGINS = ('https://*.ci.cinaq.com',)
+_LOCAL_DEV_ORIGINS = ('http://localhost:8000', 'http://127.0.0.1:8000')
 
 
 def build_allowed_hosts(*, debug):
@@ -45,6 +47,26 @@ def build_allowed_hosts(*, debug):
         'ALLOWED_HOSTS must be set when DEBUG is false '
         '(comma-separated hostnames) or provide APPLICATION_URL.'
     )
+
+
+def build_csrf_trusted_origins(*, debug):
+    origins = []
+
+    application_url = get_application_url()
+    if application_url:
+        origins.append(application_url)
+
+    env_value = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+    if env_value:
+        origins.extend(part.strip() for part in env_value.split(',') if part.strip())
+
+    if not application_url:
+        origins.extend(_LOWOPS_DEFAULT_CSRF_ORIGINS)
+
+    if debug:
+        origins.extend(_LOCAL_DEV_ORIGINS)
+
+    return list(dict.fromkeys(origins))
 
 
 def _is_internal_probe_host(host):
