@@ -101,11 +101,35 @@ def init_s3():
         return False
 
 
+def _probe_object_key(config):
+    relative = '.lowops-s3-probe'
+    prefix = (config.get('prefix') or '').strip('/')
+    if prefix:
+        return f'{prefix}/{relative}'
+    return relative
+
+
+def _s3_error_code(error):
+    if not isinstance(error, ClientError):
+        return ''
+    return error.response.get('Error', {}).get('Code', '')
+
+
 def _verify_connection(client, config):
     try:
         client.head_bucket(Bucket=config['bucket'])
         return
-    except (BotoCoreError, ClientError) as head_error:
+    except ClientError as head_error:
+        if _s3_error_code(head_error) not in {'403', 'AccessDenied'}:
+            raise
+        logger.debug(
+            'HeadBucket access denied, trying fallback probes (%s)',
+            head_error,
+        )
+    except BotoCoreError:
+        raise
+
+    try:
         kwargs = {
             'Bucket': config['bucket'],
             'MaxKeys': 1,
@@ -113,10 +137,48 @@ def _verify_connection(client, config):
         if config['prefix']:
             kwargs['Prefix'] = f"{config['prefix']}/"
         client.list_objects_v2(**kwargs)
+        logger.debug('ListObjects succeeded after HeadBucket was denied')
+        return
+    except ClientError as list_error:
+        if _s3_error_code(list_error) not in {'403', 'AccessDenied'}:
+            raise
         logger.debug(
-            'HeadBucket failed but ListObjects succeeded (%s)',
-            head_error,
+            'ListObjects access denied, trying object-level probe (%s)',
+            list_error,
         )
+    except BotoCoreError:
+        raise
+
+    probe_key = _probe_object_key(config)
+    try:
+        client.head_object(Bucket=config['bucket'], Key=probe_key)
+        return
+    except ClientError as probe_error:
+        code = _s3_error_code(probe_error)
+        if code in {'404', 'NoSuchKey', 'NotFound'}:
+            logger.debug(
+                'HeadObject probe returned not-found; credentials are valid'
+            )
+            return
+        if code not in {'403', 'AccessDenied'}:
+            raise
+        logger.debug(
+            'HeadObject access denied, trying write probe (%s)',
+            probe_error,
+        )
+    except BotoCoreError:
+        raise
+
+    client.put_object(
+        Bucket=config['bucket'],
+        Key=probe_key,
+        Body=b'',
+        ContentLength=0,
+    )
+    try:
+        client.delete_object(Bucket=config['bucket'], Key=probe_key)
+    except ClientError as delete_error:
+        logger.debug('S3 probe object written but delete failed (%s)', delete_error)
 
 
 def build_object_key(relative_key):

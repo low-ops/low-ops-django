@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
 SECRET_KEY = os.environ.get('SECRET_KEY', '').strip() or BUILD_TIME_SECRET_KEY
-DEBUG = os.environ.get('DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
+DEBUG = os.environ.get('DEBUG', 'false').lower() in {'1', 'true', 'yes', 'on'}
 
 ALLOWED_HOSTS = build_allowed_hosts(debug=DEBUG)
 patch_validate_host_for_kubernetes()
