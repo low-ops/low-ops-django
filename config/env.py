@@ -112,6 +112,12 @@ def resolve_s3_object_key(relative_key, prefix=''):
     return f'{normalized_prefix}/{normalized_key}'
 
 
+def parse_boolean_env(value):
+    if not value:
+        return False
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def get_s3_config():
     required = {
         'S3_ENDPOINT': os.environ.get('S3_ENDPOINT', '').strip(),
@@ -136,7 +142,9 @@ def get_s3_config():
         'access_key_id': required['S3_ACCESS_KEY_ID'],
         'secret_access_key': required['S3_SECRET_ACCESS_KEY'],
         'region': (os.environ.get('S3_REGION') or 'us-east-1').strip() or 'us-east-1',
-        'force_path_style': True,
+        'force_path_style': parse_boolean_env(
+            os.environ.get('S3_FORCE_PATH_STYLE', 'true')
+        ),
     }
 
 

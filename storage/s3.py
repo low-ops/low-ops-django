@@ -27,6 +27,25 @@ def get_s3_config():
     return _config
 
 
+def _build_s3_client(config, *, force_path_style):
+    service_name = config['service_name']
+    if service_name.startswith('com.mendix.storage.'):
+        service_name = 's3'
+
+    return boto3.client(
+        service_name,
+        region_name=config['region'],
+        endpoint_url=config['endpoint'],
+        aws_access_key_id=config['access_key_id'],
+        aws_secret_access_key=config['secret_access_key'],
+        config=Config(
+            s3={'addressing_style': 'path' if force_path_style else 'auto'},
+            request_checksum_calculation='when_required',
+            response_checksum_validation='when_required',
+        ),
+    )
+
+
 def init_s3():
     global _available, _client, _config
 
@@ -60,53 +79,55 @@ def init_s3():
         _config = None
         return False
 
-    service_name = config['service_name']
-    if service_name.startswith('com.mendix.storage.'):
-        service_name = 's3'
+    path_styles = [config['force_path_style']]
+    if config['force_path_style']:
+        path_styles.append(False)
 
-    client = boto3.client(
-        service_name,
-        region_name=config['region'],
-        endpoint_url=config['endpoint'],
-        aws_access_key_id=config['access_key_id'],
-        aws_secret_access_key=config['secret_access_key'],
-        config=Config(
-            s3={'addressing_style': 'path' if config['force_path_style'] else 'auto'},
-            request_checksum_calculation='when_required',
-            response_checksum_validation='when_required',
-        ),
-    )
-
-    try:
-        _verify_connection(client, config)
-        _client = client
-        _config = config
-        _available = True
-        location = (
-            f"{config['bucket']}/{config['prefix']}"
-            if config['prefix']
-            else config['bucket']
-        )
-        logger.info(
-            'S3 connection established (bucket: %s, region: %s)',
-            location,
-            config['region'],
-        )
-        return True
-    except (BotoCoreError, ClientError, Exception) as exc:
-        _available = False
-        _client = None
-        _config = None
-        logger.error('S3 connection failed: %s', exc)
-        if isinstance(exc, ClientError) and _s3_error_code(exc) in {'403', 'AccessDenied'}:
-            probe_key = _probe_object_key(config)
-            logger.error(
-                'S3 credentials are missing permission for bucket=%s key=%s '
-                '(need s3:PutObject and s3:GetObject on the configured prefix).',
-                config['bucket'],
-                probe_key,
+    last_error = None
+    for force_path_style in path_styles:
+        client = _build_s3_client(config, force_path_style=force_path_style)
+        try:
+            _verify_connection(client, config)
+            active_config = {**config, 'force_path_style': force_path_style}
+            _client = client
+            _config = active_config
+            _available = True
+            location = (
+                f"{active_config['bucket']}/{active_config['prefix']}"
+                if active_config['prefix']
+                else active_config['bucket']
             )
-        return False
+            logger.info(
+                'S3 connection established (bucket: %s, region: %s, path_style: %s)',
+                location,
+                active_config['region'],
+                force_path_style,
+            )
+            return True
+        except (BotoCoreError, ClientError, Exception) as exc:
+            last_error = exc
+            logger.debug(
+                'S3 probe failed with path_style=%s: %s',
+                force_path_style,
+                exc,
+            )
+
+    _available = False
+    _client = None
+    _config = None
+    logger.error('S3 connection failed: %s', last_error)
+    if isinstance(last_error, ClientError) and _s3_error_code(last_error) in {
+        '403',
+        'AccessDenied',
+    }:
+        probe_key = _probe_object_key(config)
+        logger.error(
+            'S3 credentials are missing permission for bucket=%s key=%s '
+            '(need s3:PutObject and s3:GetObject on the configured prefix).',
+            config['bucket'],
+            probe_key,
+        )
+    return False
 
 
 def _probe_object_key(config):
