@@ -32,18 +32,24 @@ def _build_s3_client(config, *, force_path_style):
     if service_name.startswith('com.mendix.storage.'):
         service_name = 's3'
 
-    return boto3.client(
-        service_name,
-        region_name=config['region'],
-        endpoint_url=config['endpoint'],
-        aws_access_key_id=config['access_key_id'],
-        aws_secret_access_key=config['secret_access_key'],
-        config=Config(
+    client_kwargs = {
+        'service_name': service_name,
+        'region_name': config['region'],
+        'endpoint_url': config['endpoint'],
+        'aws_access_key_id': config['access_key_id'],
+        'aws_secret_access_key': config['secret_access_key'],
+        'config': Config(
+            signature_version='s3v4',
             s3={'addressing_style': 'path' if force_path_style else 'auto'},
             request_checksum_calculation='when_required',
             response_checksum_validation='when_required',
         ),
-    )
+    }
+    session_token = (config.get('session_token') or '').strip()
+    if session_token:
+        client_kwargs['aws_session_token'] = session_token
+
+    return boto3.client(**client_kwargs)
 
 
 def _activate_s3(client, config, force_path_style, *, verified):
@@ -244,13 +250,22 @@ def upload_bytes(key, body, content_type):
     elif not isinstance(body, (bytes, bytearray)):
         body = bytes(body)
 
-    _client.put_object(
-        Bucket=_config['bucket'],
-        Key=key,
-        Body=body,
-        ContentType=content_type,
-        ContentLength=len(body),
-    )
+    try:
+        _client.put_object(
+            Bucket=_config['bucket'],
+            Key=key,
+            Body=body,
+            ContentType=content_type,
+            ContentLength=len(body),
+        )
+    except ClientError as exc:
+        logger.error(
+            'S3 upload failed for bucket=%s key=%s: %s',
+            _config['bucket'],
+            key,
+            exc,
+        )
+        raise
     return key
 
 

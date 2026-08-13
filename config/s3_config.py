@@ -87,6 +87,7 @@ def resolve_s3_config():
     return {
         'access_key_id': spec['access_key_id'],
         'secret_access_key': spec['secret_access_key'],
+        'session_token': spec.get('session_token', ''),
         'bucket': spec['bucket'],
         'prefix': spec['prefix'],
         'endpoint': endpoint,

@@ -133,8 +133,12 @@ def get_s3_config():
 
     bucket_parts = parse_s3_bucket_name(required['S3_BUCKET_NAME'])
     endpoint = normalize_s3_endpoint(required['S3_ENDPOINT'])
+    session_token = (
+        os.environ.get('S3_SESSION_TOKEN', '').strip()
+        or os.environ.get('AWS_SESSION_TOKEN', '').strip()
+    )
 
-    return {
+    config = {
         'endpoint': endpoint,
         'bucket': bucket_parts['bucket'],
         'prefix': bucket_parts['prefix'],
@@ -146,6 +150,9 @@ def get_s3_config():
             os.environ.get('S3_FORCE_PATH_STYLE', 'true')
         ),
     }
+    if session_token:
+        config['session_token'] = session_token
+    return config
 
 
 def get_s3_object_url(key):

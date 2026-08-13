@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django.http import HttpResponse, HttpResponseRedirect
@@ -17,6 +18,7 @@ from users.models import User
 from users.permissions import IsAuthenticated
 from users.services.users import avatar_url
 
+logger = logging.getLogger('lowops.avatar')
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
 
@@ -90,6 +92,7 @@ class AvatarUploadView(APIView):
             return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
             AVATAR_UPLOADS_TOTAL.labels(status='error').inc()
+            logger.exception('Avatar upload failed for user %s', user.id)
             return Response({'error': 'Failed to upload image'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         AVATAR_UPLOADS_TOTAL.labels(status='success').inc()
