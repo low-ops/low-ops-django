@@ -6,6 +6,7 @@ from config.env import (
     get_s3_config as get_spec_s3_config,
     normalize_s3_endpoint,
     parse_s3_bucket_name,
+    resolve_s3_credentials,
 )
 
 MENIX_S3_SERVICE = 'com.mendix.storage.s3'
@@ -60,9 +61,10 @@ def has_s3_config():
     ):
         return False
 
+    access_key_id, secret_access_key = resolve_s3_credentials()
     return bool(
-        os.environ.get('S3_ACCESS_KEY_ID')
-        and os.environ.get('S3_SECRET_ACCESS_KEY')
+        access_key_id
+        and secret_access_key
         and os.environ.get('S3_BUCKET_NAME')
         and os.environ.get('S3_ENDPOINT')
     )

@@ -118,12 +118,25 @@ def parse_boolean_env(value):
     return value.strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
+def resolve_s3_credentials():
+    access_key_id = (
+        os.environ.get('S3_ACCESS_KEY_ID', '').strip()
+        or os.environ.get('AWS_ACCESS_KEY_ID', '').strip()
+    )
+    secret_access_key = (
+        os.environ.get('S3_SECRET_ACCESS_KEY', '').strip()
+        or os.environ.get('AWS_SECRET_ACCESS_KEY', '').strip()
+    )
+    return access_key_id, secret_access_key
+
+
 def get_s3_config():
+    access_key_id, secret_access_key = resolve_s3_credentials()
     required = {
         'S3_ENDPOINT': os.environ.get('S3_ENDPOINT', '').strip(),
         'S3_BUCKET_NAME': os.environ.get('S3_BUCKET_NAME', '').strip(),
-        'S3_ACCESS_KEY_ID': os.environ.get('S3_ACCESS_KEY_ID', '').strip(),
-        'S3_SECRET_ACCESS_KEY': os.environ.get('S3_SECRET_ACCESS_KEY', '').strip(),
+        'S3_ACCESS_KEY_ID': access_key_id,
+        'S3_SECRET_ACCESS_KEY': secret_access_key,
     }
     missing = [key for key, value in required.items() if not value]
     if missing:

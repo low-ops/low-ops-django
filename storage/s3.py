@@ -4,6 +4,7 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
+from config.env import resolve_s3_object_key
 from config.s3_config import MENIX_S3_SERVICE, resolve_s3_config
 
 logger = logging.getLogger('lowops.s3')
@@ -156,10 +157,11 @@ def init_s3():
             )
 
     if last_client is not None and _is_access_denied(last_error):
+        preferred_style = config['force_path_style']
         return _activate_s3(
-            last_client,
+            _build_s3_client(config, force_path_style=preferred_style),
             config,
-            last_path_style,
+            preferred_style,
             verified=False,
         )
 
@@ -171,11 +173,7 @@ def init_s3():
 
 
 def _probe_object_key(config):
-    relative = '.lowops-s3-probe'
-    prefix = (config.get('prefix') or '').strip('/')
-    if prefix:
-        return f'{prefix}/{relative}'
-    return relative
+    return resolve_s3_object_key('.healthcheck', config.get('prefix', ''))
 
 
 def _s3_error_code(error):
@@ -187,61 +185,44 @@ def _s3_error_code(error):
 def _verify_connection(client, config):
     try:
         client.head_bucket(Bucket=config['bucket'])
-        return
     except ClientError as head_error:
         if _s3_error_code(head_error) not in {'403', 'AccessDenied'}:
             raise
         logger.debug(
-            'HeadBucket access denied, trying fallback probes (%s)',
+            'HeadBucket access denied, trying object probe (%s)',
             head_error,
         )
-    except BotoCoreError:
-        raise
-
-    try:
-        kwargs = {
-            'Bucket': config['bucket'],
-            'MaxKeys': 1,
-        }
-        if config['prefix']:
-            kwargs['Prefix'] = f"{config['prefix']}/"
-        client.list_objects_v2(**kwargs)
-        logger.debug('ListObjects succeeded after HeadBucket was denied')
-        return
-    except ClientError as list_error:
-        if _s3_error_code(list_error) not in {'403', 'AccessDenied'}:
-            raise
-        logger.debug(
-            'ListObjects access denied, trying object-level probe (%s)',
-            list_error,
-        )
-    except BotoCoreError:
-        raise
 
     probe_key = _probe_object_key(config)
-    try:
-        client.head_object(Bucket=config['bucket'], Key=probe_key)
-        return
-    except ClientError as probe_error:
-        code = _s3_error_code(probe_error)
-        if code in {'404', 'NoSuchKey', 'NotFound'}:
-            logger.debug(
-                'HeadObject probe returned not-found; credentials are valid'
-            )
-            return
-        raise
+    probe_body = b'ok'
+    client.put_object(
+        Bucket=config['bucket'],
+        Key=probe_key,
+        Body=probe_body,
+        ContentType='text/plain',
+        ContentLength=len(probe_body),
+    )
 
 
 def build_object_key(relative_key):
     if not _config:
         raise RuntimeError('S3 is not available')
-    relative_key = relative_key.lstrip('/')
-    if _config['prefix']:
-        return f"{_config['prefix']}/{relative_key}"
-    return relative_key
+    return resolve_s3_object_key(relative_key, _config.get('prefix', ''))
+
+
+def _put_object(key, body, content_type):
+    _client.put_object(
+        Bucket=_config['bucket'],
+        Key=key,
+        Body=body,
+        ContentType=content_type,
+        ContentLength=len(body),
+    )
 
 
 def upload_bytes(key, body, content_type):
+    global _client, _config
+
     if not _available or not _client or not _config:
         raise RuntimeError('S3 is not available')
 
@@ -251,21 +232,35 @@ def upload_bytes(key, body, content_type):
         body = bytes(body)
 
     try:
-        _client.put_object(
-            Bucket=_config['bucket'],
-            Key=key,
-            Body=body,
-            ContentType=content_type,
-            ContentLength=len(body),
-        )
+        _put_object(key, body, content_type)
     except ClientError as exc:
-        logger.error(
-            'S3 upload failed for bucket=%s key=%s: %s',
-            _config['bucket'],
-            key,
-            exc,
+        if not _is_access_denied(exc):
+            logger.error(
+                'S3 upload failed for bucket=%s key=%s: %s',
+                _config['bucket'],
+                key,
+                exc,
+            )
+            raise
+
+        alternate_style = not _config['force_path_style']
+        logger.warning(
+            'S3 upload access denied with path_style=%s; retrying with path_style=%s',
+            _config['force_path_style'],
+            alternate_style,
         )
-        raise
+        _client = _build_s3_client(_config, force_path_style=alternate_style)
+        _config = {**_config, 'force_path_style': alternate_style}
+        try:
+            _put_object(key, body, content_type)
+        except ClientError as retry_exc:
+            logger.error(
+                'S3 upload failed for bucket=%s key=%s: %s',
+                _config['bucket'],
+                key,
+                retry_exc,
+            )
+            raise
     return key
 
 
