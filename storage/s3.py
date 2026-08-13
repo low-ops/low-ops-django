@@ -46,6 +46,42 @@ def _build_s3_client(config, *, force_path_style):
     )
 
 
+def _activate_s3(client, config, force_path_style, *, verified):
+    global _available, _client, _config
+
+    active_config = {**config, 'force_path_style': force_path_style}
+    _client = client
+    _config = active_config
+    _available = True
+    location = (
+        f"{active_config['bucket']}/{active_config['prefix']}"
+        if active_config['prefix']
+        else active_config['bucket']
+    )
+    if verified:
+        logger.info(
+            'S3 connection established (bucket: %s, region: %s, path_style: %s)',
+            location,
+            active_config['region'],
+            force_path_style,
+        )
+    else:
+        logger.warning(
+            'S3 configured for bucket=%s prefix=%s (startup probe skipped; '
+            'credentials appear scoped without bucket-level permissions).',
+            active_config['bucket'],
+            active_config['prefix'] or '(none)',
+        )
+    return True
+
+
+def _is_access_denied(error):
+    return isinstance(error, ClientError) and _s3_error_code(error) in {
+        '403',
+        'AccessDenied',
+    }
+
+
 def init_s3():
     global _available, _client, _config
 
@@ -84,49 +120,47 @@ def init_s3():
         path_styles.append(False)
 
     last_error = None
+    last_client = None
+    last_path_style = config['force_path_style']
+
     for force_path_style in path_styles:
         client = _build_s3_client(config, force_path_style=force_path_style)
+        last_client = client
+        last_path_style = force_path_style
         try:
             _verify_connection(client, config)
-            active_config = {**config, 'force_path_style': force_path_style}
-            _client = client
-            _config = active_config
-            _available = True
-            location = (
-                f"{active_config['bucket']}/{active_config['prefix']}"
-                if active_config['prefix']
-                else active_config['bucket']
-            )
-            logger.info(
-                'S3 connection established (bucket: %s, region: %s, path_style: %s)',
-                location,
-                active_config['region'],
+            return _activate_s3(
+                client,
+                config,
                 force_path_style,
+                verified=True,
             )
-            return True
         except (BotoCoreError, ClientError, Exception) as exc:
             last_error = exc
+            if _is_access_denied(exc):
+                logger.debug(
+                    'S3 probe access denied with path_style=%s',
+                    force_path_style,
+                )
+                continue
             logger.debug(
                 'S3 probe failed with path_style=%s: %s',
                 force_path_style,
                 exc,
             )
 
+    if last_client is not None and _is_access_denied(last_error):
+        return _activate_s3(
+            last_client,
+            config,
+            last_path_style,
+            verified=False,
+        )
+
     _available = False
     _client = None
     _config = None
     logger.error('S3 connection failed: %s', last_error)
-    if isinstance(last_error, ClientError) and _s3_error_code(last_error) in {
-        '403',
-        'AccessDenied',
-    }:
-        probe_key = _probe_object_key(config)
-        logger.error(
-            'S3 credentials are missing permission for bucket=%s key=%s '
-            '(need s3:PutObject and s3:GetObject on the configured prefix).',
-            config['bucket'],
-            probe_key,
-        )
     return False
 
 
@@ -189,25 +223,7 @@ def _verify_connection(client, config):
                 'HeadObject probe returned not-found; credentials are valid'
             )
             return
-        if code not in {'403', 'AccessDenied'}:
-            raise
-        logger.debug(
-            'HeadObject access denied, trying write probe (%s)',
-            probe_error,
-        )
-    except BotoCoreError:
         raise
-
-    client.put_object(
-        Bucket=config['bucket'],
-        Key=probe_key,
-        Body=b'',
-        ContentLength=0,
-    )
-    try:
-        client.delete_object(Bucket=config['bucket'], Key=probe_key)
-    except ClientError as delete_error:
-        logger.debug('S3 probe object written but delete failed (%s)', delete_error)
 
 
 def build_object_key(relative_key):
