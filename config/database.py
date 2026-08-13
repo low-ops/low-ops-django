@@ -43,21 +43,6 @@ def configure_databases(base_dir):
     return {'default': postgres}
 
 
-def _reset_connections(database_config):
-    from django.conf import settings
-    from django.db import connections
-
-    connections.close_all()
-    try:
-        del connections['default']
-    except Exception:
-        pass
-
-    settings.DATABASES = {'default': database_config}
-    connections._settings = None
-    connections.__dict__.pop('settings', None)
-
-
 def is_database_available():
     from config.backends import ensure_backends
 
@@ -103,8 +88,6 @@ def init_database():
             'PostgreSQL is not configured (POSTGRES_* env vars missing).'
         )
         return False
-
-    _reset_connections(postgres)
 
     max_attempts = int(os.environ.get('DB_CONNECT_ATTEMPTS', '30'))
 

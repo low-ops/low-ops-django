@@ -98,6 +98,14 @@ def init_s3():
         _client = None
         _config = None
         logger.error('S3 connection failed: %s', exc)
+        if isinstance(exc, ClientError) and _s3_error_code(exc) in {'403', 'AccessDenied'}:
+            probe_key = _probe_object_key(config)
+            logger.error(
+                'S3 credentials are missing permission for bucket=%s key=%s '
+                '(need s3:PutObject and s3:GetObject on the configured prefix).',
+                config['bucket'],
+                probe_key,
+            )
         return False
 
 
