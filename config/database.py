@@ -93,7 +93,7 @@ def run_migrations():
         time.sleep(1)
 
 
-def init_database(base_dir):
+def init_database():
     global _database_available
 
     postgres = build_postgres_database()

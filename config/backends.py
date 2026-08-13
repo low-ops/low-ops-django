@@ -15,11 +15,9 @@ def ensure_backends():
         if _initialized:
             return
 
-        from django.conf import settings
-
-        from config.database import _database_available, init_database
+        from config.database import init_database
         from storage.s3 import init_s3
 
-        init_database(settings.BASE_DIR)
+        init_database()
         init_s3()
         _initialized = True
