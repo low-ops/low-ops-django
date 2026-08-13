@@ -7,7 +7,12 @@ import os
 from django.core.exceptions import ImproperlyConfigured
 
 from config.database import configure_databases
-from config.env import DEFAULT_APPLICATION_URL, get_application_url
+from config.env import (
+    BUILD_TIME_SECRET_KEY,
+    DEFAULT_APPLICATION_URL,
+    get_application_url,
+    get_secret_key,
+)
 from config.hosts import (
     build_allowed_hosts,
     build_csrf_trusted_origins,
@@ -16,8 +21,7 @@ from config.hosts import (
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
-SECRET_KEY = os.environ.get('SECRET_KEY', '').strip() or BUILD_TIME_SECRET_KEY
+SECRET_KEY = get_secret_key()
 DEBUG = os.environ.get('DEBUG', 'false').lower() in {'1', 'true', 'yes', 'on'}
 
 ALLOWED_HOSTS = build_allowed_hosts(debug=DEBUG)

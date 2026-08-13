@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 from urllib.parse import urlparse
@@ -5,10 +6,28 @@ from urllib.parse import urlparse
 AWS_REGION_PATTERN = re.compile(r'^[a-z]{2}(?:-[a-z]+)+-\d+$')
 
 DEFAULT_APPLICATION_URL = 'http://localhost:8000'
+BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
 
 
 class EnvValidationError(Exception):
     pass
+
+
+def get_secret_key():
+    explicit = os.environ.get('SECRET_KEY', '').strip()
+    if explicit:
+        return explicit
+
+    seed_parts = [
+        os.environ.get('POSTGRES_PASSWORD', ''),
+        os.environ.get('POSTGRES_DATABASE', ''),
+        os.environ.get('APPLICATION_URL', ''),
+    ]
+    seed = '|'.join(seed_parts)
+    if any(part.strip() for part in seed_parts):
+        return hashlib.sha256(seed.encode()).hexdigest()
+
+    return BUILD_TIME_SECRET_KEY
 
 
 def get_postgres_config():

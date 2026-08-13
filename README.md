@@ -74,9 +74,10 @@ Default admin after seed: `admin@gmail.com` / `admin`
 
 Django-only (not part of the spec):
 
-| Variable               | Default | Description                        |
-| ---------------------- | ------- | ---------------------------------- |
-| `DEBUG`                | `true`  | Django debug mode (local dev).     |
+| Variable               | Default | Description                                                        |
+| ---------------------- | ------- | ------------------------------------------------------------------ |
+| `SECRET_KEY`           | derived | Django signing key. Auto-derived from DB config if unset.          |
+| `DEBUG`                | `false` | Django debug mode (local dev).                                     |
 | `ALLOW_PUBLIC_SIGN_UP` | `false` | Allow public sign-up page and API. |
 
 See `.env.example` for a full local template.
