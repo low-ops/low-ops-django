@@ -1,7 +1,7 @@
 # Low-Ops Django Default Template
 
 <p align="left">
-  <img src="./images/logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+  <img src="./images/lowops-logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
   <img src="./images/django-logo.svg" height="50" width="60" alt="Django logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
 </p>
 
@@ -50,64 +50,64 @@ Default admin after seed: `admin@gmail.com` / `admin`
 
 ### Environment variables
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `APPLICATION_URL` | yes | — | Public app URL. |
-| `PORT` | no | `8000` | HTTP server port. |
-| `METRICS_PORT` | no | `8001` | Prometheus metrics port. |
-| `POSTGRES_HOST` | yes | — | PostgreSQL host. |
-| `POSTGRES_PORT` | no | `5432` | PostgreSQL port. |
-| `POSTGRES_DATABASE` | yes | — | PostgreSQL database name. |
-| `POSTGRES_USER` | yes | — | PostgreSQL user. |
-| `POSTGRES_PASSWORD` | yes | — | PostgreSQL password. |
-| `S3_ENDPOINT` | yes | — | S3 endpoint (protocol optional; `http` for localhost/minio). |
-| `S3_BUCKET_NAME` | yes | — | Bucket name, or `bucket/prefix`. |
-| `S3_ACCESS_KEY_ID` | yes | — | S3 access key. |
-| `S3_SECRET_ACCESS_KEY` | yes | — | S3 secret key. |
-| `S3_REGION` | no | `us-east-1` | S3 region. |
-| `S3_PUBLIC_BASE_URL` | no | `S3_ENDPOINT` | Public URL for browser-accessible file links. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | no | — | OpenTelemetry collector endpoint. |
-| `OTEL_SERVICE_NAME` | no | — | OpenTelemetry service name (required with OTEL endpoint). |
-| `RESEND_API_KEY` | no | — | Enables email verification when set. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | — | Google OAuth (optional). |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | no | — | GitHub OAuth (optional). |
+| Variable                                    | Required | Default       | Description                                                  |
+| ------------------------------------------- | -------- | ------------- | ------------------------------------------------------------ |
+| `APPLICATION_URL`                           | yes      | —             | Public app URL.                                              |
+| `PORT`                                      | no       | `8000`        | HTTP server port.                                            |
+| `METRICS_PORT`                              | no       | `8001`        | Prometheus metrics port.                                     |
+| `POSTGRES_HOST`                             | yes      | —             | PostgreSQL host.                                             |
+| `POSTGRES_PORT`                             | no       | `5432`        | PostgreSQL port.                                             |
+| `POSTGRES_DATABASE`                         | yes      | —             | PostgreSQL database name.                                    |
+| `POSTGRES_USER`                             | yes      | —             | PostgreSQL user.                                             |
+| `POSTGRES_PASSWORD`                         | yes      | —             | PostgreSQL password.                                         |
+| `S3_ENDPOINT`                               | yes      | —             | S3 endpoint (protocol optional; `http` for localhost/minio). |
+| `S3_BUCKET_NAME`                            | yes      | —             | Bucket name, or `bucket/prefix`.                             |
+| `S3_ACCESS_KEY_ID`                          | yes      | —             | S3 access key.                                               |
+| `S3_SECRET_ACCESS_KEY`                      | yes      | —             | S3 secret key.                                               |
+| `S3_REGION`                                 | no       | `us-east-1`   | S3 region.                                                   |
+| `S3_PUBLIC_BASE_URL`                        | no       | `S3_ENDPOINT` | Public URL for browser-accessible file links.                |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`               | no       | —             | OpenTelemetry collector endpoint.                            |
+| `OTEL_SERVICE_NAME`                         | no       | —             | OpenTelemetry service name (required with OTEL endpoint).    |
+| `RESEND_API_KEY`                            | no       | —             | Enables email verification when set.                         |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no       | —             | Google OAuth (optional).                                     |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | no       | —             | GitHub OAuth (optional).                                     |
 
 Django-only (not part of the spec):
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `DEBUG` | `true` | Django debug mode (local dev). |
+| Variable               | Default | Description                        |
+| ---------------------- | ------- | ---------------------------------- |
+| `DEBUG`                | `true`  | Django debug mode (local dev).     |
 | `ALLOW_PUBLIC_SIGN_UP` | `false` | Allow public sign-up page and API. |
 
 See `.env.example` for a full local template.
 
 ### Platform endpoints
 
-| Endpoint | Port | Description |
-| --- | --- | --- |
-| `GET /ready` | `PORT` | Readiness probe. Returns `{ status, checks: { postgres, s3 } }`. |
-| `GET /metrics` | `METRICS_PORT` | Prometheus metrics. |
+| Endpoint       | Port           | Description                                                      |
+| -------------- | -------------- | ---------------------------------------------------------------- |
+| `GET /ready`   | `PORT`         | Readiness probe. Returns `{ status, checks: { postgres, s3 } }`. |
+| `GET /metrics` | `METRICS_PORT` | Prometheus metrics.                                              |
 
 ### API endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/api/auth/sign-in/` | Sign in |
-| `POST` | `/api/auth/sign-up/` | Sign up |
-| `POST` | `/api/auth/sign-out/` | Sign out |
-| `GET` | `/api/auth/session/` | Current session |
-| `POST` | `/api/auth/verify-email/` | Verify email |
-| `POST` | `/api/auth/revoke-sessions/{userId}/` | Revoke sessions |
-| `PATCH` | `/api/user/profile/` | Update profile |
-| `POST` | `/api/user/avatar/` | Upload avatar |
-| `GET` | `/api/user/avatar/{userId}/` | Serve avatar |
-| `GET` | `/api/admin/users/` | List users (admin) |
-| `POST` | `/api/admin/users/create/` | Create user (admin) |
-| `POST` | `/api/admin/users/{userId}/ban/` | Ban user (admin) |
-| `POST` | `/api/admin/users/{userId}/unban/` | Unban user (admin) |
-| `POST` | `/api/admin/users/{userId}/role/` | Set role (admin) |
-| `DELETE` | `/api/admin/users/{userId}/` | Delete user (admin) |
-| `POST` | `/api/admin/users/{userId}/revoke-sessions/` | Revoke sessions (admin) |
+| Method   | Path                                         | Description             |
+| -------- | -------------------------------------------- | ----------------------- |
+| `POST`   | `/api/auth/sign-in/`                         | Sign in                 |
+| `POST`   | `/api/auth/sign-up/`                         | Sign up                 |
+| `POST`   | `/api/auth/sign-out/`                        | Sign out                |
+| `GET`    | `/api/auth/session/`                         | Current session         |
+| `POST`   | `/api/auth/verify-email/`                    | Verify email            |
+| `POST`   | `/api/auth/revoke-sessions/{userId}/`        | Revoke sessions         |
+| `PATCH`  | `/api/user/profile/`                         | Update profile          |
+| `POST`   | `/api/user/avatar/`                          | Upload avatar           |
+| `GET`    | `/api/user/avatar/{userId}/`                 | Serve avatar            |
+| `GET`    | `/api/admin/users/`                          | List users (admin)      |
+| `POST`   | `/api/admin/users/create/`                   | Create user (admin)     |
+| `POST`   | `/api/admin/users/{userId}/ban/`             | Ban user (admin)        |
+| `POST`   | `/api/admin/users/{userId}/unban/`           | Unban user (admin)      |
+| `POST`   | `/api/admin/users/{userId}/role/`            | Set role (admin)        |
+| `DELETE` | `/api/admin/users/{userId}/`                 | Delete user (admin)     |
+| `POST`   | `/api/admin/users/{userId}/revoke-sessions/` | Revoke sessions (admin) |
 
 OpenAPI schema: `/api/schema/`, Swagger UI: `/api/docs/`
 
