@@ -46,9 +46,6 @@ def _build_s3_client(config, *, force_path_style):
             response_checksum_validation='when_required',
         ),
     }
-    session_token = (config.get('session_token') or '').strip()
-    if session_token:
-        client_kwargs['aws_session_token'] = session_token
 
     return boto3.client(**client_kwargs)
 

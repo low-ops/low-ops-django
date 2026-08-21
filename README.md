@@ -81,7 +81,6 @@ OpenAPI schema: `/api/schema/`, Swagger UI: `/api/docs/`
 | `S3_ACCESS_KEY_ID`                          | yes      | —           | S3 access key. (✅ Available in Low-Ops)                                 |
 | `S3_SECRET_ACCESS_KEY`                      | yes      | —           | S3 secret key. (✅ Available in Low-Ops)                                 |
 | `S3_REGION`                                 | no       | `us-east-1` | S3 region. (✅ Available in Low-Ops)                                     |
-| `S3_PUBLIC_BASE_URL`                        | no       | —           | Public URL for browser-accessible file links. (✅ Available in Low-Ops)  |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`               | no       | —           | OpenTelemetry collector endpoint. (✅ Available in Low-Ops)              |
 | `OTEL_SERVICE_NAME`                         | no       | —           | OpenTelemetry service name. (✅ Available in Low-Ops)                    |
 | `RESEND_API_KEY`                            | no       | —           | Enables email verification when set (optional).                          |

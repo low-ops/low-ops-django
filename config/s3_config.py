@@ -44,8 +44,6 @@ def extract_region_from_endpoint(endpoint):
 def resolve_s3_region(endpoint, default_region):
     for candidate in (
         os.environ.get('S3_REGION'),
-        os.environ.get('AWS_REGION'),
-        os.environ.get('AWS_DEFAULT_REGION'),
         os.environ.get('S3_SERVICE_NAME'),
     ):
         if is_likely_aws_region(candidate):
@@ -89,7 +87,6 @@ def resolve_s3_config():
     return {
         'access_key_id': spec['access_key_id'],
         'secret_access_key': spec['secret_access_key'],
-        'session_token': spec.get('session_token', ''),
         'bucket': spec['bucket'],
         'prefix': spec['prefix'],
         'endpoint': endpoint,

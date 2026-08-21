@@ -3,8 +3,6 @@ import os
 import re
 from urllib.parse import urlparse
 
-AWS_REGION_PATTERN = re.compile(r'^[a-z]{2}(?:-[a-z]+)+-\d+$')
-
 DEFAULT_APPLICATION_URL = 'http://localhost:8000'
 BUILD_TIME_SECRET_KEY = 'build-time-placeholder-secret-min-32-chars!!'
 
@@ -79,8 +77,7 @@ def normalize_s3_endpoint(value):
 
 
 def get_s3_public_base_url(endpoint):
-    configured = (os.environ.get('S3_PUBLIC_BASE_URL') or '').strip()
-    return normalize_s3_endpoint(configured or endpoint).rstrip('/')
+    return normalize_s3_endpoint(endpoint).rstrip('/')
 
 
 def parse_s3_bucket_name(value):
@@ -146,12 +143,8 @@ def get_s3_config():
 
     bucket_parts = parse_s3_bucket_name(required['S3_BUCKET_NAME'])
     endpoint = normalize_s3_endpoint(required['S3_ENDPOINT'])
-    session_token = (
-        os.environ.get('S3_SESSION_TOKEN', '').strip()
-        or os.environ.get('AWS_SESSION_TOKEN', '').strip()
-    )
 
-    config = {
+    return {
         'endpoint': endpoint,
         'bucket': bucket_parts['bucket'],
         'prefix': bucket_parts['prefix'],
@@ -163,9 +156,6 @@ def get_s3_config():
             os.environ.get('S3_FORCE_PATH_STYLE', 'true')
         ),
     }
-    if session_token:
-        config['session_token'] = session_token
-    return config
 
 
 def get_s3_object_url(key):
