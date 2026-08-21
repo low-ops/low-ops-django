@@ -1,9 +1,5 @@
-{% extends "auth/base_auth.html" %}
-{% load static %}
-
-{% block page_title %}Sign up{% endblock %}
-
-{% block auth_content %}
+{% extends "auth/base_auth.html" %} {% load static %} {% block page_title %}Sign up{% endblock %} {% block auth_content
+%}
 <div class="auth-card">
   <div class="auth-card-header">
     <h2>Sign up for an account</h2>
@@ -12,28 +8,32 @@
   <form id="sign-up-form" class="stack">
     <label class="field">
       <span>Name</span>
-      <input type="text" name="name" autocomplete="name" required placeholder="Your name">
+      <input type="text" name="name" autocomplete="name" required placeholder="Your name" />
     </label>
     <label class="field">
       <span>Email</span>
-      <input type="email" name="email" autocomplete="email" required placeholder="name@example.com">
+      <input type="email" name="email" autocomplete="email" required placeholder="name@example.com" />
     </label>
     <label class="field">
       <span>Password</span>
       <div class="password-field">
-        <input type="password" name="password" autocomplete="new-password" required placeholder="Min 8 chars, upper, lower, number">
+        <input
+          type="password"
+          name="password"
+          autocomplete="new-password"
+          required
+          placeholder="Min 8 chars, upper, lower, number"
+        />
         <button type="button" class="icon-btn password-toggle" aria-label="Show password">👁</button>
       </div>
     </label>
     <p id="sign-up-error" class="form-error hidden"></p>
     <button type="submit" class="btn btn-primary btn-block">Sign up</button>
   </form>
-  <p class="auth-footer">
+  <!-- <p class="auth-footer">
     Already have an account? <a href="/auth/sign-in/">Sign in</a>
-  </p>
+  </p> -->
 </div>
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script src="{% static 'js/auth.js' %}"></script>
 {% endblock %}
